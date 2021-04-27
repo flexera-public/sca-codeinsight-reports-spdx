@@ -1,0 +1,3 @@
+[submodule "CodeInsight_RESTAPIs"]
+	path = CodeInsight_RESTAPIs
+	url = https://github.com/flexera/sca-codeinsight-restapi-python.git
