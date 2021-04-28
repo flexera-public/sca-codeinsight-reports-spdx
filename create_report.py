@@ -15,6 +15,7 @@ import os
 
 import _version
 import report_data
+import report_artifacts
 
 logfileName = "_spdx_report.log"
 
@@ -46,6 +47,7 @@ parser.add_argument("-baseURL", "--baseURL", help="Code Insight Core Server Prot
 def main():
 
     reportName = "SPDX Report"
+    SPDXVersion = "SPDX-2.0"
 
     logger.info("Creating %s - %s" %(reportName, _version.__version__))
     print("Creating %s - %s" %(reportName, _version.__version__))
@@ -64,8 +66,10 @@ def main():
 
     # Collect the data for the report
 
-    reportData = report_data.gather_data_for_report(baseURL, projectID, authToken, reportName)
-
+    reportData = report_data.gather_data_for_report(baseURL, projectID, authToken, reportName, SPDXVersion)
+    print("    Report data has been collected")
+    reports = report_artifacts.create_report_artifacts(reportData) 
+    print("    Report artifacts have been created")
 
 
 

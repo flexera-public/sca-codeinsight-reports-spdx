@@ -9,16 +9,18 @@ File : report_data.py
 '''
 
 import logging
+import os
 import CodeInsight_RESTAPIs.project.get_project_inventory
 import CodeInsight_RESTAPIs.project.get_scanned_files
 import CodeInsight_RESTAPIs.project.get_project_evidence
 
 import SPDX_license_mappings # To map evidence to an SPDX license name
+import filetype_mappings
 
 logger = logging.getLogger(__name__)
 
 #-------------------------------------------------------------------#
-def gather_data_for_report(baseURL, projectID, authToken, reportName):
+def gather_data_for_report(baseURL, projectID, authToken, reportName, SPDXVersion):
     logger.info("Entering gather_data_for_report")
 
     projectInventory = CodeInsight_RESTAPIs.project.get_project_inventory.get_project_inventory_details(baseURL, projectID, authToken)
@@ -75,9 +77,17 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName):
         remoteFile = scannedFile["remote"]
         FileName = scannedFile["filePath"]  
 
+        filename, file_extension = os.path.splitext(FileName)
+        if file_extension in filetype_mappings.fileTypeMappings:
+            scannedFileDetails["FileType"] = filetype_mappings.fileTypeMappings[file_extension]
+        else:
+            scannedFileDetails["FileType"] = "OTHER"
+        scannedFileDetails["LicenseConcluded"] = "***TBD***"
+
         scannedFileDetails["fileId"] = scannedFile["fileId"]
         scannedFileDetails["fileMD5"] = scannedFile["fileMD5"]
         scannedFileDetails["inInventory"] = scannedFile["inInventory"]
+        
 
         scannedFileDetails["SPDXID"] = "SPDXRef-File-" + FileName
 
@@ -86,11 +96,25 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName):
         if fileContainsEvidence:
 
             if remoteFile:
-                scannedFileDetails["FileCopyrightText"] = fileEvidence["remoteFiles"][FileName]["copyrightEvidienceFound"]
-                scannedFileDetails["LicenseInfoInFile"] = fileEvidence["remoteFiles"][FileName]["licenseEvidenceFound"]
+                if fileEvidence["remoteFiles"][FileName]["copyrightEvidienceFound"]:
+                    scannedFileDetails["FileCopyrightText"] = fileEvidence["remoteFiles"][FileName]["copyrightEvidienceFound"]
+                else:
+                    scannedFileDetails["FileCopyrightText"] = "NOASSERTION"
+
+                if fileEvidence["remoteFiles"][FileName]["licenseEvidenceFound"]:
+                    scannedFileDetails["LicenseInfoInFile"] = fileEvidence["remoteFiles"][FileName]["licenseEvidenceFound"]
+                else:
+                    scannedFileDetails["LicenseInfoInFile"] = "NOASSERTION"
+
             else:
-                scannedFileDetails["FileCopyrightText"] = fileEvidence["localFiles"][FileName]["copyrightEvidienceFound"]
-                scannedFileDetails["LicenseInfoInFile"] = fileEvidence["localFiles"][FileName]["licenseEvidenceFound"]
+                if fileEvidence["localFiles"][FileName]["copyrightEvidienceFound"]:
+                    scannedFileDetails["FileCopyrightText"] = fileEvidence["localFiles"][FileName]["copyrightEvidienceFound"]
+                else:
+                    scannedFileDetails["FileCopyrightText"] = "NOASSERTION"
+                if fileEvidence["localFiles"][FileName]["licenseEvidenceFound"]:
+                    scannedFileDetails["LicenseInfoInFile"] = fileEvidence["localFiles"][FileName]["licenseEvidenceFound"]
+                else:
+                    scannedFileDetails["LicenseInfoInFile"] = "NOASSERTION"
 
         
         if remoteFile:
@@ -100,6 +124,8 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName):
 
 
     reportData = {}
+    reportData["reportName"] = reportName
+    reportData["SPDXVersion"] = SPDXVersion
     reportData["spdxPackages"] = spdxPackages
     reportData["fileDetails"] = fileDetails
 
