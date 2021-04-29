@@ -47,10 +47,10 @@ parser.add_argument("-baseURL", "--baseURL", help="Code Insight Core Server Prot
 def main():
 
     reportName = "SPDX Report"
-    SPDXVersion = "SPDX-2.0"
+    reportVersion = _version.__version__
 
-    logger.info("Creating %s - %s" %(reportName, _version.__version__))
-    print("Creating %s - %s" %(reportName, _version.__version__))
+    logger.info("Creating %s - %s" %(reportName, reportVersion))
+    print("Creating %s - %s" %(reportName, reportVersion))
 
     # See what if any arguments were provided
     args = parser.parse_args()
@@ -66,7 +66,7 @@ def main():
 
     # Collect the data for the report
 
-    reportData = report_data.gather_data_for_report(baseURL, projectID, authToken, reportName, SPDXVersion)
+    reportData = report_data.gather_data_for_report(baseURL, projectID, authToken, reportName, reportVersion)
     print("    Report data has been collected")
     reports = report_artifacts.create_report_artifacts(reportData) 
     print("    Report artifacts have been created")

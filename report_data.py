@@ -20,7 +20,7 @@ import filetype_mappings
 logger = logging.getLogger(__name__)
 
 #-------------------------------------------------------------------#
-def gather_data_for_report(baseURL, projectID, authToken, reportName, SPDXVersion):
+def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVersion):
     logger.info("Entering gather_data_for_report")
 
     projectInventory = CodeInsight_RESTAPIs.project.get_project_inventory.get_project_inventory_details(baseURL, projectID, authToken)
@@ -137,9 +137,8 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, SPDXVersio
 
     reportData = {}
     reportData["reportName"] = reportName
-    reportData["SPDXVersion"] = SPDXVersion
+    reportData["reportVersion"] = reportVersion
     reportData["spdxPackages"] = spdxPackages
-    reportData["fileDetails"] = fileDetails
 
     return reportData
 
