@@ -1,6 +1,6 @@
 # sca-codeinsight-reports-spdx
 
-The sca-codeinsight-reports-spdx repository is a report for Revenera's Code Insight product. This report allows a user to get a quick high level summary of the inventory items within a project.  This report will take into account any child projects (recursively) for the information it provides.
+The sca-codeinsight-reports-spdx repository is a report for Revenera's Code Insight product. This report allows a user to generate a SPDX report for each inventory item to describe the files within that inventory item
 
 
 ## Prerequisites
@@ -10,12 +10,12 @@ The sca-codeinsight-reports-spdx repository is a report for Revenera's Code Insi
   
 |Repository Tag | Minimum Code Insight Release  |
 |--|--|
-|1.0.x |2020R3  |
+|1.0.x |2021R2  |
 
 
 **Submodule Repositories**
 
-This repository contains one submodules pointing to another git repo for code that can be in common to multiple projects. After the initial clone of sca-codeinsight-reports-project-inventory you will need to enter the cloned directory, link and pull down the necessary code via
+This repository contains one submodules pointing to another git repo for code that can be in common to multiple projects. After the initial clone of sca-codeinsight-reports-spdx you will need to enter the cloned directory, link and pull down the necessary code via
 
     git submodule init
     git submodule update
