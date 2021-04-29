@@ -49,7 +49,7 @@ def generate_spdx_text_report(reportName, reportVersion, packageData):
     # Grab the current date/time for report date stamp
     now = datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    textFile = reportName.replace(" ", "_") + "_" + packageName.replace(" ", "_")   + ".spdx"
+    textFile = reportName.replace(" ", "_") + "_" + packageName + ".spdx"
     logger.debug("textFile: %s" %textFile)
 
     try:

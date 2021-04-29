@@ -30,7 +30,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
     spdxPackages = {}
 
     for inventoryItem in inventoryItems:
-        packageName = inventoryItem["name"]
+        packageName = inventoryItem["name"].replace(" ", "_")
         inventoryID = inventoryItem["id"]
         filesInInventory = inventoryItem["filePaths"]
 
@@ -42,11 +42,13 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
 
         selectedLicenseSPDXIdentifier = inventoryItem["selectedLicenseSPDXIdentifier"]
 
+        # Ensure the package name is unique by adding the inventory ID
+        packageName = packageName.replace(" ", "_") + "_" + str(inventoryID)
         
         # Contains the deatils for the package/inventory item
         spdxPackages[packageName] ={}
         spdxPackages[packageName]["packageName"] = packageName
-        spdxPackages[packageName]["SPDXID"] = "SPDXRef-Pkg-" + packageName + "-" + str(inventoryID)
+        spdxPackages[packageName]["SPDXID"] = "SPDXRef-Pkg-" + packageName
         spdxPackages[packageName]["PackageFileName"] = packageName
         
         if len(PackageLicenseDeclared) == 0:
