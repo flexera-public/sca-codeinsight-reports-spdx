@@ -66,8 +66,12 @@ def generate_spdx_text_report(reportName, reportVersion, packageData):
     report_ptr.write("Creator: Tool:  Code Insight SPDX Report v%s\n" %reportVersion)
     report_ptr.write("Created:  %s\n" %now)
 
-
     report_ptr.write("\n")
+    report_ptr.write("##------------------------------\n")
+    report_ptr.write("##  Package Information\n")
+    report_ptr.write("##------------------------------\n")
+    report_ptr.write("\n")
+
     report_ptr.write("PackageName: %s\n" %packageName)
     report_ptr.write("SPDXID: %s\n" %(packageData["SPDXID"]))
     report_ptr.write("PackageDownloadLocation: NONE\n")  # TODO Use Inventory URL??
@@ -89,22 +93,35 @@ def generate_spdx_text_report(reportName, reportVersion, packageData):
 
     for file in packageFiles:
         report_ptr.write("## ----------------------- File -----------------------\n")
-        report_ptr.write("##\n")
         report_ptr.write("FileName: %s\n" %file)
         report_ptr.write("SPDXID: %s\n" %packageFiles[file]["SPDXID"])
         report_ptr.write("FileType: %s\n" %packageFiles[file]["FileType"])
-        report_ptr.write("FileChecksum: MD5:: %s\n" %packageFiles[file]["fileMD5"])
+        #report_ptr.write("FileChecksum: SHA1: %s\n" %packageFiles[file]["SHA1"])
+        report_ptr.write("FileChecksum: MD5: %s\n" %packageFiles[file]["fileMD5"])
         report_ptr.write("LicenseConcluded: %s\n" %packageFiles[file]["LicenseConcluded"])
-        report_ptr.write("LicenseInfoInFile: %s\n" %packageFiles[file]["LicenseInfoInFile"])
-        report_ptr.write("FileCopyrightText: %s\n" %packageFiles[file]["FileCopyrightText"])
+
+        for license in packageFiles[file]["LicenseInfoInFile"]:
+            report_ptr.write("LicenseInfoInFile: %s\n" %license)
+        
+        for copyright in packageFiles[file]["FileCopyrightText"]:
+            report_ptr.write("FileCopyrightText: %s\n" %copyright)
+        
         report_ptr.write("\n")
 
     report_ptr.write("##------------------------------\n")
     report_ptr.write("##  Relationship Information\n")
     report_ptr.write("##------------------------------\n")
-    report_ptr.write("")
+    report_ptr.write("\n")
 
+    report_ptr.write("Relationship: %s DESCIBES %s\n" %("SPDXRef-DOCUMENT", packageData["SPDXID"] ))
+    report_ptr.write("Relationship: %s DESCRIBED_BY  %s\n" %(packageData["SPDXID"], "SPDXRef-DOCUMENT" ))
 
+    report_ptr.write("\n")
+
+    for file in packageFiles:
+        report_ptr.write("## ----------------------- Relationship -----------------------\n")
+        report_ptr.write("Relationship: %s CONTAINS  %s\n" %(packageData["SPDXID"], packageFiles[file]["SPDXID"] ))
+        report_ptr.write("\n")
 
     report_ptr.close() 
 

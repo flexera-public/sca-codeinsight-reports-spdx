@@ -49,8 +49,10 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
         spdxPackages[packageName]["SPDXID"] = "SPDXRef-Pkg-" + packageName + "-" + str(inventoryID)
         spdxPackages[packageName]["PackageFileName"] = packageName
         
-        if len(PackageLicenseDeclared) <= 1:
-            spdxPackages[packageName]["PackageLicenseConcluded"] = PackageLicenseDeclared
+        if len(PackageLicenseDeclared) == 0:
+            spdxPackages[packageName]["PackageLicenseConcluded"] = "NOASSERTION"
+        elif len(PackageLicenseDeclared) == 1:
+            spdxPackages[packageName]["PackageLicenseConcluded"] = PackageLicenseDeclared[0]
         else:
             spdxPackages[packageName]["PackageLicenseConcluded"] = "(" + ' OR '.join(sorted(PackageLicenseDeclared)) + ")"
        
@@ -77,7 +79,17 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
         remote = fileEvidenceDetails["remote"]
         filePath = fileEvidenceDetails["filePath"]
         evidence["copyrightEvidienceFound"] = fileEvidenceDetails["copyRightMatches"]
-        evidence["licenseEvidenceFound"] =  fileEvidenceDetails["licenseMatches"]
+
+        # The licese evidience is not in SPDX form so consolidate and map
+        licenseEvidenceFound = list(set(fileEvidenceDetails["licenseMatches"]))
+        for index, licenseEvidence in enumerate(licenseEvidenceFound):
+            if licenseEvidence in SPDX_license_mappings.LICENSEMAPPINGS:
+                licenseEvidenceFound[index] = SPDX_license_mappings.LICENSEMAPPINGS[licenseEvidence]
+
+        if len(licenseEvidenceFound) == 0:
+            evidence["licenseEvidenceFound"] = ["NONE"]
+        else:
+            evidence["licenseEvidenceFound"] = licenseEvidenceFound
 
         if remote:
             fileEvidence["localFiles"][filePath] = evidence
@@ -100,14 +112,13 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
         else:
             scannedFileDetails["FileType"] = "OTHER"
         
-        scannedFileDetails["LicenseConcluded"] = "***TBD***"
+        scannedFileDetails["LicenseConcluded"] = "NOASSERTION"
 
         scannedFileDetails["fileId"] = scannedFile["fileId"]
         scannedFileDetails["fileMD5"] = scannedFile["fileMD5"]
         scannedFileDetails["inInventory"] = scannedFile["inInventory"]
         
-
-        scannedFileDetails["SPDXID"] = "SPDXRef-File-" + FileName
+        scannedFileDetails["SPDXID"] = "SPDXRef-File-" + FileName + "-" + ("remote" if remote else "local") + "-" + scannedFile["fileId"]
 
         fileContainsEvidence = scannedFile["containsEvidence"]   
 
