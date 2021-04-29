@@ -96,7 +96,7 @@ def generate_spdx_text_report(reportName, reportVersion, packageData):
         report_ptr.write("FileName: %s\n" %file)
         report_ptr.write("SPDXID: %s\n" %packageFiles[file]["SPDXID"])
         report_ptr.write("FileType: %s\n" %packageFiles[file]["FileType"])
-        #report_ptr.write("FileChecksum: SHA1: %s\n" %packageFiles[file]["SHA1"])
+        #report_ptr.write("FileChecksum: SHA1: %s\n" %packageFiles[file]["SHA1"]) # TODO Add SHA1
         report_ptr.write("FileChecksum: MD5: %s\n" %packageFiles[file]["fileMD5"])
         report_ptr.write("LicenseConcluded: %s\n" %packageFiles[file]["LicenseConcluded"])
 

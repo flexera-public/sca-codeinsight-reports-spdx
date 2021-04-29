@@ -116,6 +116,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
 
         scannedFileDetails["fileId"] = scannedFile["fileId"]
         scannedFileDetails["fileMD5"] = scannedFile["fileMD5"]
+        #scannedFileDetails["sha1"] = scannedFile["sha1"] # TODO Add SHA1
         scannedFileDetails["inInventory"] = scannedFile["inInventory"]
         
         scannedFileDetails["SPDXID"] = "SPDXRef-File-" + FileName + "-" + ("remote" if remote else "local") + "-" + scannedFile["fileId"]
@@ -164,7 +165,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
         fileHashes = []
         fileLicenses = []
         for file in spdxPackages[package]["files"]:
-            # Create a list of MD5s to hash
+            # Create a list of MD5s to hash   # TODO Cpnvert to SHA1
             fileHashes.append(spdxPackages[package]["files"][file]["fileMD5"])
             # Collect licesne info from files
             fileLicenses.extend(spdxPackages[package]["files"][file]["LicenseInfoInFile"])
