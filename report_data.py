@@ -10,6 +10,7 @@ File : report_data.py
 
 import logging
 import os
+import hashlib
 import CodeInsight_RESTAPIs.project.get_project_inventory
 import CodeInsight_RESTAPIs.project.get_scanned_files
 import CodeInsight_RESTAPIs.project.get_project_evidence
@@ -30,6 +31,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
 
     for inventoryItem in inventoryItems:
         packageName = inventoryItem["name"]
+        inventoryID = inventoryItem["id"]
         filesInInventory = inventoryItem["filePaths"]
         selectedLicenseSPDXIdentifier = inventoryItem["selectedLicenseSPDXIdentifier"]
 
@@ -37,7 +39,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
         # Contains the deatils for the package/inventory item
         spdxPackages[packageName] ={}
         spdxPackages[packageName]["packageName"] = packageName
-        spdxPackages[packageName]["SPDXID"] = "SPDXRef-Pkg-" + packageName
+        spdxPackages[packageName]["SPDXID"] = "SPDXRef-Pkg-" + packageName + "-" + str(inventoryID)
         spdxPackages[packageName]["PackageFileName"] = packageName
         spdxPackages[packageName]["PackageLicenseDeclared"] = selectedLicenseSPDXIdentifier
         spdxPackages[packageName]["containedFiles"] = filesInInventory
@@ -133,7 +135,14 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                 spdxPackages[package]["files"][file] =  fileDetails["remoteFiles"][file]
             else:
                 logger.error("Not possible since every file in an inventory item is in the file details dict")
+        
+        # Create a hash of the file hashes for PackageVerificationCode
+        fileHashes = []
+        for file in spdxPackages[package]["files"]:
+            fileHashes.append(spdxPackages[package]["files"][file]["fileMD5"])
 
+        stringHash = ''.join(sorted(fileHashes))
+        spdxPackages[package]["PackageVerificationCode"] = (hashlib.sha1(stringHash.encode('utf-8'))).hexdigest()
 
     reportData = {}
     reportData["reportName"] = reportName
