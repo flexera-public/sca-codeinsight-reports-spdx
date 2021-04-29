@@ -21,27 +21,34 @@ def create_report_artifacts(reportData):
 
     # Dict to hold the complete list of reports
     reports = {}
+    packageReports = []
 
-    spdtTextFile = generate_spdx_text_report(reportData)
+    reportName = reportData["reportName"]
+    SPDXVersion = reportData["SPDXVersion"]
+
+    # Create a seperate SPDX report for each inventory item
+    for package in reportData["spdxPackages"]:
+        spdtTextFile = generate_spdx_text_report(reportName, SPDXVersion, reportData["spdxPackages"][package] )
+        packageReports.append(spdtTextFile)
     
-    reports["viewable"] = spdtTextFile
-    reports["allFormats"] = [spdtTextFile]
+    #reports["viewable"] = spdtTextFile
+    reports["allFormats"] = packageReports
 
     logger.info("Exiting create_report_artifacts")
     
     return reports 
 
 #--------------------------------------------------------------------------------#
-def generate_spdx_text_report(reportData):
+def generate_spdx_text_report(reportName, SPDXVersion, packageData):
     logger.info("Entering generate_spdx_text_report")
-    
-    reportName = reportData["reportName"]
-    SPDXVersion = reportData["SPDXVersion"]
 
+    packageName = packageData["packageName"]
+    packageFiles = packageData["files"]
+   
     # Grab the current date/time for report date stamp
     now = datetime.now().strftime("%B %d, %Y at %H:%M:%S")
 
-    textFile = reportName.replace(" ", "_") + ".txt"
+    textFile = reportName.replace(" ", "_") + "_" + packageName.replace(" ", "_")   + ".txt"
     logger.debug("textFile: %s" %textFile)
 
     try:
@@ -68,11 +75,11 @@ def generate_spdx_text_report(reportData):
 
     report_ptr.write("\n")
     report_ptr.write("##------------------------------\n")
-    report_ptr.write("##  Package Information")
+    report_ptr.write("##  Package Information\n")
     report_ptr.write("##------------------------------\n")
     report_ptr.write("\n")
-    report_ptr.write("PackageName: wr-lx-setup-master.zip\n")
-    report_ptr.write("SPDXID: SPDXRef-Pkg-wr-lx-setup-master.zip-604d9f2f5e1b8a11031a6b7d646ae2f1351df70b\n")
+    report_ptr.write("PackageName: %s\n" %packageName)
+    report_ptr.write("SPDXID: SPDXRef-Pkg-%s\n" %packageName)
     report_ptr.write("PackageFileName: wr-lx-setup-master.zip\n")
     report_ptr.write("PackageDownloadLocation: NOASSERTION\n")
     report_ptr.write("PackageVerificationCode: 760dcf682a7ce765292e7b0596b12dd046b13023\n")
@@ -92,16 +99,16 @@ def generate_spdx_text_report(reportData):
     report_ptr.write("##------------------------------\n")
     report_ptr.write("\n")
 
-    for file in reportData["fileDetails"]["localFiles"]:
+    for file in packageFiles:
         report_ptr.write("## ----------------------- File -----------------------\n")
         report_ptr.write("##\n")
         report_ptr.write("FileName: %s\n" %file)
-        report_ptr.write("SPDXID: %s\n" %reportData["fileDetails"]["localFiles"][file]["SPDXID"])
-        report_ptr.write("FileType: %s\n" %reportData["fileDetails"]["localFiles"][file]["FileType"])
-        report_ptr.write("FileChecksum: MD5:: %s\n" %reportData["fileDetails"]["localFiles"][file]["fileMD5"])
-        report_ptr.write("LicenseConcluded: %s\n" %reportData["fileDetails"]["localFiles"][file]["LicenseConcluded"])
-        report_ptr.write("LicenseInfoInFile: %s\n" %reportData["fileDetails"]["localFiles"][file]["LicenseInfoInFile"])
-        report_ptr.write("FileCopyrightText: %s\n" %reportData["fileDetails"]["localFiles"][file]["FileCopyrightText"])
+        report_ptr.write("SPDXID: %s\n" %packageFiles[file]["SPDXID"])
+        report_ptr.write("FileType: %s\n" %packageFiles[file]["FileType"])
+        report_ptr.write("FileChecksum: MD5:: %s\n" %packageFiles[file]["fileMD5"])
+        report_ptr.write("LicenseConcluded: %s\n" %packageFiles[file]["LicenseConcluded"])
+        report_ptr.write("LicenseInfoInFile: %s\n" %packageFiles[file]["LicenseInfoInFile"])
+        report_ptr.write("FileCopyrightText: %s\n" %packageFiles[file]["FileCopyrightText"])
         report_ptr.write("\n")
 
     report_ptr.write("##------------------------------\n")

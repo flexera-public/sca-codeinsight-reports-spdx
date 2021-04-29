@@ -1,4 +1,5 @@
 *.log
+*.txt
 *.pyc
 *.html
 *.zip

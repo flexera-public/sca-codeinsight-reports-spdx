@@ -36,6 +36,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, SPDXVersio
         
         # Contains the deatils for the package/inventory item
         spdxPackages[packageName] ={}
+        spdxPackages[packageName]["packageName"] = packageName
         spdxPackages[packageName]["SPDXID"] = "SPDXRef-Pkg-" + packageName
         spdxPackages[packageName]["PackageFileName"] = packageName
         spdxPackages[packageName]["PackageLicenseDeclared"] = selectedLicenseSPDXIdentifier
@@ -116,11 +117,22 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, SPDXVersio
                 else:
                     scannedFileDetails["LicenseInfoInFile"] = "NOASSERTION"
 
-        
         if remoteFile:
             fileDetails["localFiles"][FileName] = scannedFileDetails
         else: 
             fileDetails["remoteFiles"][FileName] = scannedFileDetails
+
+    # Merge the results to map each package (inventory item) with the assocaited files
+    for package in spdxPackages:
+        spdxPackages[package]["files"] = {}
+        
+        for file in spdxPackages[package]["containedFiles"]:
+            if file in fileDetails["localFiles"]:
+                spdxPackages[package]["files"][file] =  fileDetails["localFiles"][file]
+            elif file in fileDetails["remoteFiles"]:
+                spdxPackages[package]["files"][file] =  fileDetails["remoteFiles"][file]
+            else:
+                logger.error("Not possible since every file in an inventory item is in the file details dict")
 
 
     reportData = {}
