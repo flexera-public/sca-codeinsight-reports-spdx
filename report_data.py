@@ -33,6 +33,13 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
         packageName = inventoryItem["name"]
         inventoryID = inventoryItem["id"]
         filesInInventory = inventoryItem["filePaths"]
+
+        possibleLicenses = inventoryItem["possibleLicenses"]
+
+        PackageLicenseDeclared = []
+        for license in possibleLicenses:
+            PackageLicenseDeclared.append(license["licenseSPDXIdentifier"])
+
         selectedLicenseSPDXIdentifier = inventoryItem["selectedLicenseSPDXIdentifier"]
 
         
@@ -41,6 +48,13 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
         spdxPackages[packageName]["packageName"] = packageName
         spdxPackages[packageName]["SPDXID"] = "SPDXRef-Pkg-" + packageName + "-" + str(inventoryID)
         spdxPackages[packageName]["PackageFileName"] = packageName
+        
+        if len(PackageLicenseDeclared) <= 1:
+            spdxPackages[packageName]["PackageLicenseConcluded"] = PackageLicenseDeclared
+        else:
+            spdxPackages[packageName]["PackageLicenseConcluded"] = "(" + ' OR '.join(sorted(PackageLicenseDeclared)) + ")"
+       
+
         spdxPackages[packageName]["PackageLicenseDeclared"] = selectedLicenseSPDXIdentifier
         spdxPackages[packageName]["containedFiles"] = filesInInventory
 
@@ -85,6 +99,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
             scannedFileDetails["FileType"] = filetype_mappings.fileTypeMappings[file_extension]
         else:
             scannedFileDetails["FileType"] = "OTHER"
+        
         scannedFileDetails["LicenseConcluded"] = "***TBD***"
 
         scannedFileDetails["fileId"] = scannedFile["fileId"]
@@ -97,27 +112,26 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
         fileContainsEvidence = scannedFile["containsEvidence"]   
 
         if fileContainsEvidence:
+            scannedFileDetails["LicenseInfoInFile"] = []
 
             if remoteFile:
                 if fileEvidence["remoteFiles"][FileName]["copyrightEvidienceFound"]:
                     scannedFileDetails["FileCopyrightText"] = fileEvidence["remoteFiles"][FileName]["copyrightEvidienceFound"]
                 else:
-                    scannedFileDetails["FileCopyrightText"] = "NOASSERTION"
+                    scannedFileDetails["FileCopyrightText"] = ["NOASSERTION"]
 
                 if fileEvidence["remoteFiles"][FileName]["licenseEvidenceFound"]:
                     scannedFileDetails["LicenseInfoInFile"] = fileEvidence["remoteFiles"][FileName]["licenseEvidenceFound"]
-                else:
-                    scannedFileDetails["LicenseInfoInFile"] = "NOASSERTION"
+
 
             else:
                 if fileEvidence["localFiles"][FileName]["copyrightEvidienceFound"]:
                     scannedFileDetails["FileCopyrightText"] = fileEvidence["localFiles"][FileName]["copyrightEvidienceFound"]
                 else:
-                    scannedFileDetails["FileCopyrightText"] = "NOASSERTION"
+                    scannedFileDetails["FileCopyrightText"] = ["NOASSERTION"]
                 if fileEvidence["localFiles"][FileName]["licenseEvidenceFound"]:
                     scannedFileDetails["LicenseInfoInFile"] = fileEvidence["localFiles"][FileName]["licenseEvidenceFound"]
-                else:
-                    scannedFileDetails["LicenseInfoInFile"] = "NOASSERTION"
+
 
         if remoteFile:
             fileDetails["localFiles"][FileName] = scannedFileDetails
@@ -135,14 +149,19 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                 spdxPackages[package]["files"][file] =  fileDetails["remoteFiles"][file]
             else:
                 logger.error("Not possible since every file in an inventory item is in the file details dict")
-        
-        # Create a hash of the file hashes for PackageVerificationCode
-        fileHashes = []
-        for file in spdxPackages[package]["files"]:
-            fileHashes.append(spdxPackages[package]["files"][file]["fileMD5"])
 
+        fileHashes = []
+        fileLicenses = []
+        for file in spdxPackages[package]["files"]:
+            # Create a list of MD5s to hash
+            fileHashes.append(spdxPackages[package]["files"][file]["fileMD5"])
+            # Collect licesne info from files
+            fileLicenses.extend(spdxPackages[package]["files"][file]["LicenseInfoInFile"])
+
+        # Create a hash of the file hashes for PackageVerificationCode
         stringHash = ''.join(sorted(fileHashes))
         spdxPackages[package]["PackageVerificationCode"] = (hashlib.sha1(stringHash.encode('utf-8'))).hexdigest()
+        spdxPackages[package]["PackageLicenseInfoFromFiles"] = set(fileLicenses)
 
     reportData = {}
     reportData["reportName"] = reportName

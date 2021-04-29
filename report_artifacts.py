@@ -9,9 +9,7 @@ File : report_artifacts.py
 '''
 
 import logging
-import os
 from datetime import datetime
-import base64
 
 logger = logging.getLogger(__name__)
 
@@ -24,11 +22,11 @@ def create_report_artifacts(reportData):
     packageReports = []
 
     reportName = reportData["reportName"]
-    SPDXVersion = reportData["SPDXVersion"]
+    reportVersion = reportData["reportVersion"]
 
     # Create a seperate SPDX report for each inventory item
     for package in reportData["spdxPackages"]:
-        spdtTextFile = generate_spdx_text_report(reportName, SPDXVersion, reportData["spdxPackages"][package] )
+        spdtTextFile = generate_spdx_text_report(reportName, reportVersion, reportData["spdxPackages"][package] )
         packageReports.append(spdtTextFile)
     
     #reports["viewable"] = spdtTextFile
@@ -39,14 +37,17 @@ def create_report_artifacts(reportData):
     return reports 
 
 #--------------------------------------------------------------------------------#
-def generate_spdx_text_report(reportName, SPDXVersion, packageData):
+def generate_spdx_text_report(reportName, reportVersion, packageData):
     logger.info("Entering generate_spdx_text_report")
 
     packageName = packageData["packageName"]
     packageFiles = packageData["files"]
+
+    SPDXVersion = "SPDX-2.2"
+    DataLicense = "CC0-1.0"
    
     # Grab the current date/time for report date stamp
-    now = datetime.now().strftime("%B %d, %Y at %H:%M:%S")
+    now = datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
 
     textFile = reportName.replace(" ", "_") + "_" + packageName.replace(" ", "_")   + ".spdx"
     logger.debug("textFile: %s" %textFile)
@@ -58,39 +59,26 @@ def generate_spdx_text_report(reportName, SPDXVersion, packageData):
         raise
 
     report_ptr.write("SPDXVersion: %s\n" %SPDXVersion)
-    report_ptr.write("\n")
-    report_ptr.write("##------------------------------------------------------\n")
-    report_ptr.write("##  SPDX 2.0 by Revenera\n")
-    report_ptr.write("##------------------------------------------------------\n")
-    report_ptr.write("\n")
-    report_ptr.write("\n")
-    report_ptr.write("##------------------------------\n")
-    report_ptr.write("##  Document Information\n")
-    report_ptr.write("##------------------------------\n")
-    report_ptr.write("DataLicense: CC0-1.0\n")
+    report_ptr.write("DataLicense: %s\n" %DataLicense)
     report_ptr.write("SPDXID: SPDXRef-DOCUMENT\n")
-    report_ptr.write("DocumentName: wr-lx-setup-master.zip\n")
-    report_ptr.write("DocumentNamespace:  http://spdx.windriver.com/Reports2.0/604d9f2f5e1b8a11031a6b7d646ae2f1351df70b\n")
-    report_ptr.write('''DocumentComment: <text>This file contains computer automated SPDX data. Computer automated data is created by using only computer automation analysis on the source code files contained in the package. That is, no human experts participated in the source code analysis. Although we continuously work to improve the quality by adding and/or improving various heuristics, and accessing different databases and rule-based systems, the quality is bounded by what can be achieved by way of computer automation. Please send your feedback to: spdx@WindRiver.com.  DISCLAIMER: This document is provided "as is" without any warranty whatsoever. This documentation may not be referenced or relied upon for its accuracy or comprehensiveness, or to determine legal obligations with respect to open source code contained in the software package it represents. Such determinations should be based upon recipient's independent legal analysis and by reference to the notices and licenses contained within the open source code itself. Wind River may change the contents of this document at any time at its sole discretion, and Wind River shall have no liability whatsoever arising from recipient's use of this information. </text>\n''')
+    report_ptr.write("DocumentName: %s\n" %packageName.replace(" ", "_"))
+    report_ptr.write("DocumentNamespace:  *** TBD - Mandatory - Something unique to ref this doc\n")
+    report_ptr.write("Creator: Tool:  Code Insight SPDX Report v%s\n" %reportVersion)
+    report_ptr.write("Created:  %s\n" %now)
 
-    report_ptr.write("\n")
-    report_ptr.write("##------------------------------\n")
-    report_ptr.write("##  Package Information\n")
-    report_ptr.write("##------------------------------\n")
+
     report_ptr.write("\n")
     report_ptr.write("PackageName: %s\n" %packageName)
-    report_ptr.write("SPDXID: SPDXRef-Pkg-%s\n" %packageName)
-    report_ptr.write("PackageFileName: wr-lx-setup-master.zip\n")
-    report_ptr.write("PackageDownloadLocation: NOASSERTION\n")
-    report_ptr.write("PackageVerificationCode: 760dcf682a7ce765292e7b0596b12dd046b13023\n")
-    report_ptr.write("PackageChecksum: SHA1: 604d9f2f5e1b8a11031a6b7d646ae2f1351df70b\n")
-    report_ptr.write("PackageChecksum: SHA256: 2cd4cef56f843f7c9e2b255609ad49978bbd9667db3ab74f9bbc4204b2f5be84\n")
-    report_ptr.write("PackageChecksum: MD5: e853376e709a1280a443d687a8d7215f\n")
+    report_ptr.write("SPDXID: %s\n" %(packageData["SPDXID"]))
+    report_ptr.write("PackageDownloadLocation: NONE\n")  # TODO Use Inventory URL??
+    report_ptr.write("PackageVerificationCode: %s\n" %packageData["PackageVerificationCode"])
 
-    report_ptr.write("## -------------- Package Licensing --------------\n")
-    report_ptr.write("PackageLicenseConcluded: GPL-2.0\n")
-    report_ptr.write("PackageLicenseDeclared: GPL-2.0\n")
-    report_ptr.write("PackageLicenseInfoFromFiles: GPL-2.0\n")
+    report_ptr.write("PackageLicenseConcluded: %s\n" %packageData["PackageLicenseConcluded"])
+
+    for licenseFromFile in packageData["PackageLicenseInfoFromFiles"]:
+        report_ptr.write("PackageLicenseInfoFromFiles: %s\n" %licenseFromFile)
+
+    report_ptr.write("PackageLicenseDeclared: %s\n" %packageData["PackageLicenseDeclared"])
     report_ptr.write("PackageCopyrightText: NOASSERTION\n")
 
     report_ptr.write("\n")
