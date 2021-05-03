@@ -23,10 +23,12 @@ def create_report_artifacts(reportData):
 
     reportName = reportData["reportName"]
     reportVersion = reportData["reportVersion"]
+    SPDXVersion = reportData["SPDXVersion"]
+    DataLicense = reportData["DataLicense"]
 
     # Create a seperate SPDX report for each inventory item
     for package in reportData["spdxPackages"]:
-        spdtTextFile = generate_spdx_text_report(reportName, reportVersion, reportData["spdxPackages"][package] )
+        spdtTextFile = generate_spdx_text_report(reportName, reportVersion, SPDXVersion, DataLicense, reportData["spdxPackages"][package] )
         packageReports.append(spdtTextFile)
     
     #reports["viewable"] = spdtTextFile
@@ -37,15 +39,12 @@ def create_report_artifacts(reportData):
     return reports 
 
 #--------------------------------------------------------------------------------#
-def generate_spdx_text_report(reportName, reportVersion, packageData):
+def generate_spdx_text_report(reportName, reportVersion, SPDXVersion, DataLicense, packageData):
     logger.info("Entering generate_spdx_text_report")
 
     packageName = packageData["packageName"]
     packageFiles = packageData["files"]
-
-    SPDXVersion = "SPDX-2.2"
-    DataLicense = "CC0-1.0"
-   
+  
     # Grab the current date/time for report date stamp
     now = datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -74,7 +73,7 @@ def generate_spdx_text_report(reportName, reportVersion, packageData):
 
     report_ptr.write("PackageName: %s\n" %packageName)
     report_ptr.write("SPDXID: %s\n" %(packageData["SPDXID"]))
-    report_ptr.write("PackageDownloadLocation: NONE\n")  # TODO Use Inventory URL??
+    report_ptr.write("PackageDownloadLocation: %s\n" %packageData["PackageDownloadLocation"])
     report_ptr.write("PackageVerificationCode: %s\n" %packageData["PackageVerificationCode"])
 
     report_ptr.write("PackageLicenseConcluded: %s\n" %packageData["PackageLicenseConcluded"])

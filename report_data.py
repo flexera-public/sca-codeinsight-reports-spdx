@@ -24,6 +24,9 @@ logger = logging.getLogger(__name__)
 def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVersion):
     logger.info("Entering gather_data_for_report")
 
+    SPDXVersion = "SPDX-2.2"
+    DataLicense = "CC0-1.0"
+
     projectInventory = CodeInsight_RESTAPIs.project.get_project_inventory.get_project_inventory_details(baseURL, projectID, authToken)
     inventoryItems = projectInventory["inventoryItems"]
 
@@ -50,6 +53,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
         spdxPackages[packageName]["packageName"] = packageName
         spdxPackages[packageName]["SPDXID"] = "SPDXRef-Pkg-" + packageName
         spdxPackages[packageName]["PackageFileName"] = packageName
+        spdxPackages[packageName]["PackageDownloadLocation"] = "TBD"  # TODO Inventory URL??
         
         if len(PackageLicenseDeclared) == 0:
             spdxPackages[packageName]["PackageLicenseConcluded"] = "NOASSERTION"
@@ -69,6 +73,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
     spdxPackages[nonInventoryPackageName]["packageName"] = nonInventoryPackageName
     spdxPackages[nonInventoryPackageName]["SPDXID"] = "SPDXRef-Pkg-" + nonInventoryPackageName
     spdxPackages[nonInventoryPackageName]["PackageFileName"] = nonInventoryPackageName
+    spdxPackages[nonInventoryPackageName]["PackageDownloadLocation"] = "NOASSERTION"
     spdxPackages[nonInventoryPackageName]["PackageLicenseConcluded"] = "NOASSERTION"
     spdxPackages[nonInventoryPackageName]["PackageLicenseDeclared"] = "NOASSERTION"
 
@@ -172,12 +177,8 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
 
     # Merge the results to map each package (inventory item) with the assocaited files
     for package in spdxPackages:
-        print("-------------------------")
-        print(package)
-        print(spdxPackages[package])
         spdxPackages[package]["files"] = {}
-        
-        
+                
         for file in spdxPackages[package]["containedFiles"]:
             if file in fileDetails["localFiles"]:
                 spdxPackages[package]["files"][file] =  fileDetails["localFiles"][file]
@@ -202,6 +203,8 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
     reportData = {}
     reportData["reportName"] = reportName
     reportData["reportVersion"] = reportVersion
+    reportData["SPDXVersion"] = "SPDX-2.2"
+    reportData["DataLicense"]  = "CC0-1.0"
     reportData["spdxPackages"] = spdxPackages
 
     return reportData
