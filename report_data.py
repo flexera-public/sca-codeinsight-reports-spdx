@@ -62,6 +62,16 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
         spdxPackages[packageName]["PackageLicenseDeclared"] = selectedLicenseSPDXIdentifier
         spdxPackages[packageName]["containedFiles"] = filesInInventory
 
+   
+    # Create a package to hold files not associated to an inventory item directly
+    nonInventoryPackageName = "Files_without_inventory"
+    spdxPackages[nonInventoryPackageName] ={}
+    spdxPackages[nonInventoryPackageName]["packageName"] = nonInventoryPackageName
+    spdxPackages[nonInventoryPackageName]["SPDXID"] = "SPDXRef-Pkg-" + nonInventoryPackageName
+    spdxPackages[nonInventoryPackageName]["PackageFileName"] = nonInventoryPackageName
+    spdxPackages[nonInventoryPackageName]["PackageLicenseConcluded"] = "NOASSERTION"
+    spdxPackages[nonInventoryPackageName]["PackageLicenseDeclared"] = "NOASSERTION"
+
 
     # Dictionary to contain all of the file specific data
     fileDetails = {}
@@ -107,6 +117,14 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
         scannedFileDetails = {}
         remoteFile = scannedFile["remote"]
         FileName = scannedFile["filePath"]  
+        inInventory = scannedFile["inInventory"]  
+        
+        # Is the file already in inventory or do we need to deal wtih it?
+        if inInventory == "false":
+            try:
+                spdxPackages[nonInventoryPackageName]["containedFiles"].append(FileName)
+            except:
+                spdxPackages[nonInventoryPackageName]["containedFiles"] = [FileName]
 
         filename, file_extension = os.path.splitext(FileName)
         if file_extension in filetype_mappings.fileTypeMappings:
@@ -119,8 +137,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
         scannedFileDetails["fileId"] = scannedFile["fileId"]
         scannedFileDetails["fileMD5"] = scannedFile["fileMD5"]
         #scannedFileDetails["sha1"] = scannedFile["sha1"] # TODO Add SHA1
-        scannedFileDetails["inInventory"] = scannedFile["inInventory"]
-        
+          
         scannedFileDetails["SPDXID"] = "SPDXRef-File-" + FileName + "-" + ("remote" if remote else "local") + "-" + scannedFile["fileId"]
 
         fileContainsEvidence = scannedFile["containsEvidence"]   
@@ -152,9 +169,14 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
         else: 
             fileDetails["remoteFiles"][FileName] = scannedFileDetails
 
+
     # Merge the results to map each package (inventory item) with the assocaited files
     for package in spdxPackages:
+        print("-------------------------")
+        print(package)
+        print(spdxPackages[package])
         spdxPackages[package]["files"] = {}
+        
         
         for file in spdxPackages[package]["containedFiles"]:
             if file in fileDetails["localFiles"]:
