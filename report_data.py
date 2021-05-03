@@ -53,7 +53,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
         spdxPackages[packageName]["packageName"] = packageName
         spdxPackages[packageName]["SPDXID"] = "SPDXRef-Pkg-" + packageName
         spdxPackages[packageName]["PackageFileName"] = packageName
-        spdxPackages[packageName]["PackageDownloadLocation"] = "TBD"  # TODO Inventory URL??
+        spdxPackages[packageName]["PackageDownloadLocation"] = inventoryItem["componentUrl"]  # TODO Inventory URL??
         
         if len(PackageLicenseDeclared) == 0:
             spdxPackages[packageName]["PackageLicenseConcluded"] = "NOASSERTION"
