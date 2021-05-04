@@ -10,6 +10,8 @@ File : report_artifacts.py
 
 import logging
 from datetime import datetime
+import os
+import base64
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +29,7 @@ def create_report_artifacts(reportData):
     DataLicense = reportData["DataLicense"]
     DocumentNamespace = reportData["DocumentNamespace"]
 
-    summaryFile = generate_spdx_summary_report(reportData)
+    summaryFile = generate_spdx_html_summary_report(reportData)
 
     # Create a seperate SPDX report for each inventory item
     for package in reportData["spdxPackages"]:
@@ -43,28 +45,118 @@ def create_report_artifacts(reportData):
     return reports 
 
 #--------------------------------------------------------------------------------#
-def generate_spdx_summary_report(reportData):
-    logger.info("Entering generate_spdx_text_report")
+def generate_spdx_html_summary_report(reportData):
+    logger.info("Entering generate_spdx_html_summary_report")
 
     reportName = reportData["reportName"]
-    textFile = reportName.replace(" ", "_") + "_" + "summary.txt"
+
+    scriptDirectory = os.path.dirname(os.path.realpath(__file__))
+    cssFile =  os.path.join(scriptDirectory, "html-assets/css/revenera_common.css")
+    logoImageFile =  os.path.join(scriptDirectory, "html-assets/images/logo_reversed.svg")
+    iconFile =  os.path.join(scriptDirectory, "html-assets/images/favicon-revenera.ico")
+
+    #########################################################
+    #  Encode the image files
+    encodedLogoImage = encodeImage(logoImageFile)
+    encodedfaviconImage = encodeImage(iconFile)
+    
+    # Grab the current date/time for report date stamp
+    now = datetime.now().strftime("%B %d, %Y at %H:%M:%S")
+
+    htmlFile = reportName.replace(" ", "_") + ".html"
+    logger.debug("htmlFile: %s" %htmlFile)
+    
+    #---------------------------------------------------------------------------------------------------
+    # Create a simple HTML file to display
+    #---------------------------------------------------------------------------------------------------
     try:
-        report_ptr = open(textFile,"w")
+        html_ptr = open(htmlFile,"w")
     except:
-        logger.error("Failed to open textFile %s:" %textFile)
+        logger.error("Failed to open htmlfile %s:" %htmlFile)
         raise
 
+    html_ptr.write("<html>\n") 
+    html_ptr.write("    <head>\n")
+
+    html_ptr.write("        <!-- Required meta tags --> \n")
+    html_ptr.write("        <meta charset='utf-8'>  \n")
+    html_ptr.write("        <meta name='viewport' content='width=device-width, initial-scale=1, shrink-to-fit=no'> \n")
+
+    html_ptr.write(''' 
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.1/css/bootstrap.min.css" integrity="sha384-VCmXjywReHh4PwowAiWNagnWcLhlEJLA5buUprzK8rxFgeH0kww/aWY76TfkUoSX" crossorigin="anonymous">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.1.3/css/bootstrap.css">
+    ''')
+
+
+    html_ptr.write("        <style>\n")
+
+    # Add the contents of the css file to the head block
+    try:
+        f_ptr = open(cssFile)
+        logger.debug("Adding css file details")
+        for line in f_ptr:
+            html_ptr.write("            %s" %line)
+        f_ptr.close()
+    except:
+        logger.error("Unable to open %s" %cssFile)
+        print("Unable to open %s" %cssFile)
+
+
+    html_ptr.write("        </style>\n")  
+
+    html_ptr.write("    	<link rel='icon' type='image/png' href='data:image/png;base64, {}'>\n".format(encodedfaviconImage.decode('utf-8')))
+    html_ptr.write("        <title>%s</title>\n" %(reportName))
+    html_ptr.write("    </head>\n") 
+
+    html_ptr.write("<body>\n")
+    html_ptr.write("<div class=\"container-fluid\">\n")
+
+    #---------------------------------------------------------------------------------------------------
+    # Report Header
+    #---------------------------------------------------------------------------------------------------
+    html_ptr.write("<!-- BEGIN HEADER -->\n")
+    html_ptr.write("<div class='header'>\n")
+    html_ptr.write("  <div class='logo'>\n")
+    html_ptr.write("    <img src='data:image/svg+xml;base64,{}' style='width: 400px;'>\n".format(encodedLogoImage.decode('utf-8')))
+    html_ptr.write("  </div>\n")
+    html_ptr.write("<div class='report-title'>%s</div>\n" %(reportName))
+    html_ptr.write("</div>\n")
+    html_ptr.write("<!-- END HEADER -->\n")
+
+    #---------------------------------------------------------------------------------------------------
+    # Body of Report
+    #---------------------------------------------------------------------------------------------------
+    html_ptr.write("<!-- BEGIN BODY -->\n") 
+
+    html_ptr.write("<ul class='list-group list-group-flush'>\n")
 
     for package in reportData["spdxPackages"]:
 
         spdxReportName = reportName.replace(" ", "_") + "_" + package + ".spdx"
-        report_ptr.write("Generated SPDX report: %s\n" %spdxReportName)
+        html_ptr.write("<li class='list-group-item'>Generated SPDX report: %s</li>\n" %spdxReportName)
 
-    report_ptr.close() 
+    html_ptr.write("</ul>\n")
 
-    logger.info("    Exiting generate_spdx_text_report")
+    html_ptr.write("<!-- END BODY -->\n")  
+    #---------------------------------------------------------------------------------------------------
+    # Report Footer
+    #---------------------------------------------------------------------------------------------------
+    html_ptr.write("<!-- BEGIN FOOTER -->\n")
+    html_ptr.write("<div class='report-footer'>\n")
+    html_ptr.write("  <div style='float:left'>&copy; 2021 Flexera</div>\n")
+    html_ptr.write("  <div style='float:right'>Generated on %s</div>\n" %now)
+    html_ptr.write("</div>\n")
+    html_ptr.write("<!-- END FOOTER -->\n")   
 
-    return textFile
+    html_ptr.write("</div>\n")    
+
+    html_ptr.write("</body>\n") 
+    html_ptr.write("</html>\n") 
+    html_ptr.close() 
+
+    logger.info("    Exiting generate_spdx_html_summary_report")
+
+    return htmlFile
 
 
 #--------------------------------------------------------------------------------#
@@ -157,3 +249,16 @@ def generate_spdx_text_report(reportName, reportVersion, SPDXVersion, DataLicens
 
     return textFile
 
+####################################################################
+def encodeImage(imageFile):
+
+    #############################################
+    # Create base64 variable for branding image
+    try:
+        with open(imageFile,"rb") as image:
+            logger.debug("Encoding image: %s" %imageFile)
+            encodedImage = base64.b64encode(image.read())
+            return encodedImage
+    except:
+        logger.error("Unable to open %s" %imageFile)
+        raise
