@@ -30,6 +30,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
 
     projectInventory = CodeInsight_RESTAPIs.project.get_project_inventory.get_project_inventory_details(baseURL, projectID, authToken)
     inventoryItems = projectInventory["inventoryItems"]
+    projectName = projectInventory["projectName"]
 
     spdxPackages = {}
 
@@ -204,6 +205,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
     reportData = {}
     reportData["reportName"] = reportName
     reportData["reportVersion"] = reportVersion
+    reportData["projectName"] = projectName
     reportData["SPDXVersion"] = SPDXVersion
     reportData["DataLicense"]  = DataLicense
     reportData["DocumentNamespace"]  = DocumentNamespace

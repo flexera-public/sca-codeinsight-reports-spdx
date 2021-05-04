@@ -49,6 +49,7 @@ def generate_spdx_html_summary_report(reportData):
     logger.info("Entering generate_spdx_html_summary_report")
 
     reportName = reportData["reportName"]
+    projectName = reportData["projectName"]
 
     scriptDirectory = os.path.dirname(os.path.realpath(__file__))
     cssFile =  os.path.join(scriptDirectory, "html-assets/css/revenera_common.css")
@@ -127,6 +128,8 @@ def generate_spdx_html_summary_report(reportData):
     # Body of Report
     #---------------------------------------------------------------------------------------------------
     html_ptr.write("<!-- BEGIN BODY -->\n") 
+
+    html_ptr.write("<b>Individual SPDX report files may be found within the downloadable zip file from the reports tab for project %s.</b><p>\n" %projectName)
 
     html_ptr.write("<ul class='list-group list-group-flush'>\n")
 
