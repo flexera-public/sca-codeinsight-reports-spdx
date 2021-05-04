@@ -25,21 +25,50 @@ def create_report_artifacts(reportData):
     reportVersion = reportData["reportVersion"]
     SPDXVersion = reportData["SPDXVersion"]
     DataLicense = reportData["DataLicense"]
+    DocumentNamespace = reportData["DocumentNamespace"]
+
+    summaryFile = generate_spdx_summary_report(reportData)
 
     # Create a seperate SPDX report for each inventory item
     for package in reportData["spdxPackages"]:
-        spdtTextFile = generate_spdx_text_report(reportName, reportVersion, SPDXVersion, DataLicense, reportData["spdxPackages"][package] )
+        spdtTextFile = generate_spdx_text_report(reportName, reportVersion, SPDXVersion, DataLicense, DocumentNamespace, reportData["spdxPackages"][package] )
         packageReports.append(spdtTextFile)
     
-    #reports["viewable"] = spdtTextFile
+    reports["viewable"] = summaryFile
     reports["allFormats"] = packageReports
+    reports["allFormats"].append(summaryFile)
 
     logger.info("Exiting create_report_artifacts")
     
     return reports 
 
 #--------------------------------------------------------------------------------#
-def generate_spdx_text_report(reportName, reportVersion, SPDXVersion, DataLicense, packageData):
+def generate_spdx_summary_report(reportData):
+    logger.info("Entering generate_spdx_text_report")
+
+    reportName = reportData["reportName"]
+    textFile = reportName.replace(" ", "_") + "_" + "summary.txt"
+    try:
+        report_ptr = open(textFile,"w")
+    except:
+        logger.error("Failed to open textFile %s:" %textFile)
+        raise
+
+
+    for package in reportData["spdxPackages"]:
+
+        spdxReportName = reportName.replace(" ", "_") + "_" + package + ".spdx"
+        report_ptr.write("Generated SPDX report: %s\n" %spdxReportName)
+
+    report_ptr.close() 
+
+    logger.info("    Exiting generate_spdx_text_report")
+
+    return textFile
+
+
+#--------------------------------------------------------------------------------#
+def generate_spdx_text_report(reportName, reportVersion, SPDXVersion, DataLicense, DocumentNamespace, packageData):
     logger.info("Entering generate_spdx_text_report")
 
     packageName = packageData["packageName"]
@@ -61,7 +90,7 @@ def generate_spdx_text_report(reportName, reportVersion, SPDXVersion, DataLicens
     report_ptr.write("DataLicense: %s\n" %DataLicense)
     report_ptr.write("SPDXID: SPDXRef-DOCUMENT\n")
     report_ptr.write("DocumentName: %s\n" %packageName.replace(" ", "_"))
-    report_ptr.write("DocumentNamespace:  *** TBD - Mandatory - Something unique to ref this doc\n")
+    report_ptr.write("DocumentNamespace: %s\n" %DocumentNamespace)
     report_ptr.write("Creator: Tool:  Code Insight SPDX Report v%s\n" %reportVersion)
     report_ptr.write("Created:  %s\n" %now)
 

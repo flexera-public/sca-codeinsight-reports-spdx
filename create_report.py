@@ -112,7 +112,7 @@ def create_report_zipfile(reportOutputs, reportName):
 	print("        Create zip archive containing viewable and downloadable archive for upload: %s" %uploadZipflle)
 	logger.debug("    Create zip archive containing viewable and downloadable archive for upload: %s" %uploadZipflle)
 	zipToUpload = zipfile.ZipFile(uploadZipflle, 'w', zipfile.ZIP_DEFLATED)
-	#zipToUpload.write(reportOutputs["viewable"])
+	zipToUpload.write(reportOutputs["viewable"])
 	zipToUpload.write(allFormatZipFile)
 	zipToUpload.close()
 	logger.debug("    Archive zip file for upload has been created")
@@ -132,7 +132,7 @@ def create_report_zipfile(reportOutputs, reportName):
 		except OSError:
 			logger.error("Error removing %s" %fileName)
 			print("Error removing %s" %fileName)
-			return -1    
+
 
 	logger.info("Exiting create_report_zipfile")
 	return uploadZipflle
