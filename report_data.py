@@ -202,14 +202,19 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
         spdxPackages[package]["PackageVerificationCode"] = (hashlib.sha1(stringHash.encode('utf-8'))).hexdigest()
         spdxPackages[package]["PackageLicenseInfoFromFiles"] = set(fileLicenses)
 
+
+    SPDXData = {}
+    SPDXData["SPDXVersion"] = SPDXVersion
+    SPDXData["DataLicense"]  = DataLicense
+    SPDXData["DocumentNamespace"]  = DocumentNamespace
+    SPDXData["spdxPackages"] = spdxPackages
+
     reportData = {}
     reportData["reportName"] = reportName
     reportData["reportVersion"] = reportVersion
     reportData["projectName"] = projectName
-    reportData["SPDXVersion"] = SPDXVersion
-    reportData["DataLicense"]  = DataLicense
-    reportData["DocumentNamespace"]  = DocumentNamespace
-    reportData["spdxPackages"] = spdxPackages
+    reportData["SPDXData"] = SPDXData
+
 
     return reportData
 
