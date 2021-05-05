@@ -11,6 +11,7 @@ File : report_data.py
 import logging
 import os
 import hashlib
+import uuid
 import CodeInsight_RESTAPIs.project.get_project_inventory
 import CodeInsight_RESTAPIs.project.get_scanned_files
 import CodeInsight_RESTAPIs.project.get_project_evidence
@@ -26,7 +27,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
 
     SPDXVersion = "SPDX-2.2"
     DataLicense = "CC0-1.0"
-    DocumentNamespace = "TBD"
+    DocumentNamespaceBase = "http:/spdx.org/spdxdocs"  # This shold be modified for each Code Insight instance
 
     projectInventory = CodeInsight_RESTAPIs.project.get_project_inventory.get_project_inventory_details(baseURL, projectID, authToken)
     inventoryItems = projectInventory["inventoryItems"]
@@ -55,6 +56,8 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
         spdxPackages[packageName]["packageName"] = packageName
         spdxPackages[packageName]["SPDXID"] = "SPDXRef-Pkg-" + packageName
         spdxPackages[packageName]["PackageFileName"] = packageName
+        spdxPackages[packageName]["DocumentName"] =  packageName.replace(" ", "_")
+        spdxPackages[packageName]["DocumentNamespace"] = DocumentNamespaceBase + "/" + packageName.replace(" ", "_") + "-" + str(uuid.uuid1())
         spdxPackages[packageName]["PackageDownloadLocation"] = inventoryItem["componentUrl"]  # TODO Inventory URL??
         
         if len(PackageLicenseDeclared) == 0:
@@ -75,6 +78,8 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
     spdxPackages[nonInventoryPackageName]["packageName"] = nonInventoryPackageName
     spdxPackages[nonInventoryPackageName]["SPDXID"] = "SPDXRef-Pkg-" + nonInventoryPackageName
     spdxPackages[nonInventoryPackageName]["PackageFileName"] = nonInventoryPackageName
+    spdxPackages[nonInventoryPackageName]["DocumentName"] =  nonInventoryPackageName.replace(" ", "_")
+    spdxPackages[nonInventoryPackageName]["DocumentNamespace"] = DocumentNamespaceBase + "/" + nonInventoryPackageName  + "-" + str(uuid.uuid1())
     spdxPackages[nonInventoryPackageName]["PackageDownloadLocation"] = "NOASSERTION"
     spdxPackages[nonInventoryPackageName]["PackageLicenseConcluded"] = "NOASSERTION"
     spdxPackages[nonInventoryPackageName]["PackageLicenseDeclared"] = "NOASSERTION"
@@ -207,7 +212,6 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
     SPDXData = {}
     SPDXData["SPDXVersion"] = SPDXVersion
     SPDXData["DataLicense"]  = DataLicense
-    SPDXData["DocumentNamespace"]  = DocumentNamespace
     SPDXData["spdxPackages"] = spdxPackages
 
     reportData = {}
