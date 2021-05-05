@@ -121,14 +121,14 @@ def generate_spdx_html_summary_report(reportData):
     #---------------------------------------------------------------------------------------------------
     html_ptr.write("<!-- BEGIN BODY -->\n") 
 
-    html_ptr.write("<b>Individual SPDX report files may be found within the downloadable zip file from the reports tab for project %s.</b><p>\n" %projectName)
+    html_ptr.write("<H5>Individual SPDX report files for project <b>%s</b>, may be found within the downloadable zip file from the project reports tab.</H5><p>\n" %projectName)
 
     html_ptr.write("<ul class='list-group list-group-flush'>\n")
 
     for package in SPDXData["spdxPackages"]:
 
         spdxReportName = reportName.replace(" ", "_") + "_" + package + ".spdx"
-        html_ptr.write("<li class='list-group-item'>Generated SPDX report: %s</li>\n" %spdxReportName)
+        html_ptr.write("<li class='list-group-item'>Generated SPDX report: <b>%s</b></li>\n" %spdxReportName)
 
     html_ptr.write("</ul>\n")
 
