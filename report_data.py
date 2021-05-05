@@ -29,7 +29,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
     DataLicense = "CC0-1.0"
     DocumentNamespaceBase = "http:/spdx.org/spdxdocs"  # This shold be modified for each Code Insight instance
 
-    projectInventory = CodeInsight_RESTAPIs.project.get_project_inventory.get_project_inventory_details(baseURL, projectID, authToken)
+    projectInventory = CodeInsight_RESTAPIs.project.get_project_inventory.get_project_inventory_details_without_vulnerabilities(baseURL, projectID, authToken)
     inventoryItems = projectInventory["inventoryItems"]
     projectName = projectInventory["projectName"]
 
