@@ -34,42 +34,59 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
     projectName = projectInventory["projectName"]
 
     spdxPackages = {}
+    filesNotInComponents = []
 
     for inventoryItem in inventoryItems:
-        packageName = inventoryItem["name"].replace(" ", "_")
-        inventoryID = inventoryItem["id"]
-        filesInInventory = inventoryItem["filePaths"]
-
-        possibleLicenses = inventoryItem["possibleLicenses"]
-
-        PackageLicenseDeclared = []
-        for license in possibleLicenses:
-            PackageLicenseDeclared.append(license["licenseSPDXIdentifier"])
-
-        selectedLicenseSPDXIdentifier = inventoryItem["selectedLicenseSPDXIdentifier"]
-
-        # Ensure the package name is unique by adding the inventory ID
-        packageName = packageName.replace(" ", "_") + "_" + str(inventoryID)
         
-        # Contains the deatils for the package/inventory item
-        spdxPackages[packageName] ={}
-        spdxPackages[packageName]["packageName"] = packageName
-        spdxPackages[packageName]["SPDXID"] = "SPDXRef-Pkg-" + packageName
-        spdxPackages[packageName]["PackageFileName"] = packageName
-        spdxPackages[packageName]["DocumentName"] =  packageName.replace(" ", "_")
-        spdxPackages[packageName]["DocumentNamespace"] = DocumentNamespaceBase + "/" + packageName.replace(" ", "_") + "-" + str(uuid.uuid1())
-        spdxPackages[packageName]["PackageDownloadLocation"] = inventoryItem["componentUrl"]  # TODO Inventory URL??
+        inventoryType = inventoryItem["type"]
         
-        if len(PackageLicenseDeclared) == 0:
-            spdxPackages[packageName]["PackageLicenseConcluded"] = "NOASSERTION"
-        elif len(PackageLicenseDeclared) == 1:
-            spdxPackages[packageName]["PackageLicenseConcluded"] = PackageLicenseDeclared[0]
+        # Seperate out Inventory vs WIP or License Only items
+        if inventoryType == "Component":
+
+            componentName = inventoryItem["componentName"].replace(" ", "_")
+            versionName = inventoryItem["componentVersionName"].replace(" ", "_").replace('/', '')
+            inventoryID = inventoryItem["id"]
+            packageName = componentName + "_" + versionName + "_" + str(inventoryID)
+
+            logger.info("Processing %s" %(packageName))
+            filesInInventory = inventoryItem["filePaths"]
+
+            PackageLicenseDeclared = []
+            try:
+                possibleLicenses = inventoryItem["possibleLicenses"]
+                for license in possibleLicenses:
+                    PackageLicenseDeclared.append(license["licenseSPDXIdentifier"]) 
+            except:
+
+                PackageLicenseDeclared.append(["NOASSERTION"])     
+            
+            selectedLicenseSPDXIdentifier = inventoryItem["selectedLicenseSPDXIdentifier"]
+            
+            # Contains the deatils for the package/inventory item
+            spdxPackages[packageName] ={}
+            spdxPackages[packageName]["packageName"] = packageName
+            spdxPackages[packageName]["SPDXID"] = "SPDXRef-Pkg-" + packageName
+            spdxPackages[packageName]["PackageFileName"] = packageName
+            spdxPackages[packageName]["DocumentName"] =  packageName.replace(" ", "_")
+            spdxPackages[packageName]["DocumentNamespace"] = DocumentNamespaceBase + "/" + packageName.replace(" ", "_") + "-" + str(uuid.uuid1())
+            spdxPackages[packageName]["PackageDownloadLocation"] = inventoryItem["componentUrl"]  # TODO Inventory URL??
+            
+            if len(PackageLicenseDeclared) == 0:
+                spdxPackages[packageName]["PackageLicenseConcluded"] = "NOASSERTION"
+            elif len(PackageLicenseDeclared) == 1:
+                spdxPackages[packageName]["PackageLicenseConcluded"] = PackageLicenseDeclared[0]
+            else:
+                spdxPackages[packageName]["PackageLicenseConcluded"] = "(" + ' OR '.join(sorted(PackageLicenseDeclared)) + ")"
+        
+
+            spdxPackages[packageName]["PackageLicenseDeclared"] = selectedLicenseSPDXIdentifier
+            spdxPackages[packageName]["containedFiles"] = filesInInventory
         else:
-            spdxPackages[packageName]["PackageLicenseConcluded"] = "(" + ' OR '.join(sorted(PackageLicenseDeclared)) + ")"
-       
+            # This is a WIP or License only item so take the files assocated here and include them in
+            # in the files without inventory bucket
+            for file in inventoryItem["filePaths"]:
+                filesNotInComponents.append(file)
 
-        spdxPackages[packageName]["PackageLicenseDeclared"] = selectedLicenseSPDXIdentifier
-        spdxPackages[packageName]["containedFiles"] = filesInInventory
 
    
     # Create a package to hold files not associated to an inventory item directly
@@ -130,6 +147,13 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
         remoteFile = scannedFile["remote"]
         FileName = scannedFile["filePath"]  
         inInventory = scannedFile["inInventory"]  
+
+        # Check to see if the file was associated to an WIP or License only item
+        # If it is set the inVenetory flag to false
+
+        if FileName in filesNotInComponents:
+            inInventory = "false"
+
         
         # Is the file already in inventory or do we need to deal wtih it?
         if inInventory == "false":
@@ -137,6 +161,8 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                 spdxPackages[nonInventoryPackageName]["containedFiles"].append(FileName)
             except:
                 spdxPackages[nonInventoryPackageName]["containedFiles"] = [FileName]
+
+        
 
         filename, file_extension = os.path.splitext(FileName)
         if file_extension in filetype_mappings.fileTypeMappings:
