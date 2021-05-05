@@ -166,7 +166,6 @@ def generate_spdx_text_report(reportData):
     SPDXReports = []
 
     for package in SPDXData["spdxPackages"]:
-        print(package)
         packageData = SPDXData["spdxPackages"][package]
 
         packageName = packageData["packageName"]
