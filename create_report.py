@@ -18,7 +18,7 @@ import report_data
 import report_artifacts
 import CodeInsight_RESTAPIs.project.upload_reports
 
-logfileName = "_spdx_report.log"
+logfileName = os.path.dirname(os.path.realpath(__file__)) + "/_spdx_report.log"
 
 ###################################################################################
 # Test the version of python to make sure it's at least the version the script
@@ -47,53 +47,56 @@ parser.add_argument("-baseURL", "--baseURL", help="Code Insight Core Server Prot
 #----------------------------------------------------------------------#
 def main():
 
-    reportName = "SPDX Report"
-    reportVersion = _version.__version__
+	reportName = "SPDX Report"
+	reportVersion = _version.__version__
 
-    logger.info("Creating %s - %s" %(reportName, reportVersion))
-    print("Creating %s - %s" %(reportName, reportVersion))
+	logger.info("Creating %s - %s" %(reportName, reportVersion))
+	print("Creating %s - %s" %(reportName, reportVersion))
 
-    # See what if any arguments were provided
-    args = parser.parse_args()
-    projectID = args.projectID
-    reportID = args.reportID
-    authToken = args.authToken
-    baseURL = args.baseURL
+	# See what if any arguments were provided
+	args = parser.parse_args()
+	projectID = args.projectID
+	reportID = args.reportID
+	authToken = args.authToken
+	baseURL = args.baseURL
 
-    logger.debug("Custom Report Provided Arguments:")	
-    logger.debug("    projectID:  %s" %projectID)	
-    logger.debug("    reportID:   %s" %reportID)	
-    logger.debug("    baseURL:  %s" %baseURL)	
+	logger.debug("Custom Report Provided Arguments:")	
+	logger.debug("    projectID:  %s" %projectID)	
+	logger.debug("    reportID:   %s" %reportID)	
+	logger.debug("    baseURL:  %s" %baseURL)	
 
-    # Collect the data for the report
+	# Collect the data for the report
 
-    reportData = report_data.gather_data_for_report(baseURL, projectID, authToken, reportName, reportVersion)
-    print("    Report data has been collected")
-    reports = report_artifacts.create_report_artifacts(reportData) 
-    print("    Report artifacts have been created")
-    uploadZipfile = create_report_zipfile(reports, reportName)
-    print("    Upload zip file creation completed")
-    CodeInsight_RESTAPIs.project.upload_reports.upload_project_report_data(baseURL, projectID, reportID, authToken, uploadZipfile)
-    print("    Report uploaded to Code Insight")
+	reportData = report_data.gather_data_for_report(baseURL, projectID, authToken, reportName, reportVersion)
+	print("    Report data has been collected")
+	reports = report_artifacts.create_report_artifacts(reportData) 
+	print("    Report artifacts have been created")
+
+	projectName = reportData["projectName"]
+
+	uploadZipfile = create_report_zipfile(reports, reportName, projectName)
+	print("    Upload zip file creation completed")
+	CodeInsight_RESTAPIs.project.upload_reports.upload_project_report_data(baseURL, projectID, reportID, authToken, uploadZipfile)
+	print("    Report uploaded to Code Insight")
 
 	#########################################################
 	# Remove the file since it has been uploaded to Code Insight
-    try:
-        os.remove(uploadZipfile)
-    except OSError:
-        logger.error("Error removing %s" %uploadZipfile)
-        print("Error removing %s" %uploadZipfile)
+	try:
+		os.remove(uploadZipfile)
+	except OSError:
+		logger.error("Error removing %s" %uploadZipfile)
+		print("Error removing %s" %uploadZipfile)
 
-    logger.info("Completed creating %s" %reportName)
-    print("Completed creating %s" %reportName)
+	logger.info("Completed creating %s" %reportName)
+	print("Completed creating %s" %reportName)
 
 
 #---------------------------------------------------------------------#
-def create_report_zipfile(reportOutputs, reportName):
+def create_report_zipfile(reportOutputs, reportName, projectName):
 	logger.info("Entering create_report_zipfile")
 
 	# create a ZipFile object
-	allFormatZipFile = reportName.replace(" ", "_") + ".zip"
+	allFormatZipFile = projectName + "_" + reportName.replace(" ", "_") + ".zip"
 	allFormatsZip = zipfile.ZipFile(allFormatZipFile, 'w', zipfile.ZIP_DEFLATED)
 
 	logger.debug("     	  Create downloadable archive: %s" %allFormatZipFile)
