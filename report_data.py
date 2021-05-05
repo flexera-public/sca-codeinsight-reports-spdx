@@ -137,6 +137,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
         if file_extension in filetype_mappings.fileTypeMappings:
             scannedFileDetails["FileType"] = filetype_mappings.fileTypeMappings[file_extension]
         else:
+            logger.info("Unmapped file type extension for file: %s" %FileName)
             scannedFileDetails["FileType"] = "OTHER"
         
         scannedFileDetails["LicenseConcluded"] = "NOASSERTION"
