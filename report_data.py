@@ -29,6 +29,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
     SPDXVersion = "SPDX-2.2"
     DataLicense = "CC0-1.0"
     DocumentNamespaceBase = "http:/spdx.org/spdxdocs"  # This shold be modified for each Code Insight instance
+    Creator = "Code Insight"
 
     projectInventory = CodeInsight_RESTAPIs.project.get_project_inventory.get_project_inventory_details_without_vulnerabilities(baseURL, projectID, authToken)
     inventoryItems = projectInventory["inventoryItems"]
@@ -93,7 +94,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                 filesNotInComponents.append(file)
 
     # Create a package to hold files not associated to an inventory item directly
-    nonInventoryPackageName = "Files_without_inventory"
+    nonInventoryPackageName = "OtherFiles"
     spdxPackages[nonInventoryPackageName] ={}
     spdxPackages[nonInventoryPackageName]["reportName"] = projectName + "-" + nonInventoryPackageName + ".spdx"
     spdxPackages[nonInventoryPackageName]["packageName"] = nonInventoryPackageName
@@ -124,16 +125,20 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
         filePath = fileEvidenceDetails["filePath"]
         evidence["copyrightEvidienceFound"] = fileEvidenceDetails["copyRightMatches"]
 
-        # The licese evidience is not in SPDX form so consolidate and map
+        # The license evidience is not in SPDX form so consolidate and map
         licenseEvidenceFound = list(set(fileEvidenceDetails["licenseMatches"]))
         for index, licenseEvidence in enumerate(licenseEvidenceFound):
             if licenseEvidence in SPDX_license_mappings.LICENSEMAPPINGS:
                 licenseEvidenceFound[index] = SPDX_license_mappings.LICENSEMAPPINGS[licenseEvidence]
+            else:
+                logger.info("Unmapped License to SPDX ID in file evidence: %s" %licenseEvidence)
+
+               
 
         if len(licenseEvidenceFound) == 0:
             evidence["licenseEvidenceFound"] = ["NONE"]
         else:
-            evidence["licenseEvidenceFound"] = licenseEvidenceFound
+            evidence["licenseEvidenceFound"] = licenseEvidenceFound  
 
         if remote:
             fileEvidence["localFiles"][filePath] = evidence
@@ -184,7 +189,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
         scannedFileDetails["fileMD5"] = scannedFile["fileMD5"]
         #scannedFileDetails["sha1"] = scannedFile["sha1"] # TODO Add SHA1
           
-        scannedFileDetails["SPDXID"] = "SPDXRef-File-" + FileName + "-" + ("remote" if remote else "local") + "-" + scannedFile["fileId"]
+        scannedFileDetails["SPDXID"] = "SPDXRef-File-" + FileName + "-" + ("remote" if remote else "server") + "-" + scannedFile["fileId"]
 
         fileContainsEvidence = scannedFile["containsEvidence"]   
 
@@ -244,7 +249,8 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
 
     SPDXData = {}
     SPDXData["SPDXVersion"] = SPDXVersion
-    SPDXData["DataLicense"]  = DataLicense
+    SPDXData["DataLicense"] = DataLicense
+    SPDXData["Creator"] = Creator
     SPDXData["spdxPackages"] = spdxPackages
 
     reportData = {}

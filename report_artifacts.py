@@ -189,7 +189,7 @@ def generate_spdx_text_report(reportData):
         report_ptr.write("SPDXID: SPDXRef-DOCUMENT\n")
         report_ptr.write("DocumentName: %s\n" %packageData["DocumentName"])
         report_ptr.write("DocumentNamespace: %s\n" %packageData["DocumentNamespace"])
-        report_ptr.write("Creator: Tool:  Code Insight SPDX Report v%s\n" %reportVersion)
+        report_ptr.write("Creator: Tool: %s" %SPDXData["Creator"])
         report_ptr.write("Created:  %s\n" %now)
 
         report_ptr.write("\n")
