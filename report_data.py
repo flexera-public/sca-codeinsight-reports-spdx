@@ -12,6 +12,7 @@ import logging
 import os
 import hashlib
 import uuid
+import mimetypes
 import CodeInsight_RESTAPIs.project.get_project_inventory
 import CodeInsight_RESTAPIs.project.get_scanned_files
 import CodeInsight_RESTAPIs.project.get_project_evidence
@@ -87,8 +88,6 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
             for file in inventoryItem["filePaths"]:
                 filesNotInComponents.append(file)
 
-
-   
     # Create a package to hold files not associated to an inventory item directly
     nonInventoryPackageName = "Files_without_inventory"
     spdxPackages[nonInventoryPackageName] ={}
@@ -101,7 +100,6 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
     spdxPackages[nonInventoryPackageName]["PackageLicenseConcluded"] = "NOASSERTION"
     spdxPackages[nonInventoryPackageName]["PackageLicenseDeclared"] = "NOASSERTION"
 
-
     # Dictionary to contain all of the file specific data
     fileDetails = {}
     fileDetails["remoteFiles"] = {}
@@ -109,7 +107,6 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
 
     # Collect the copyright/license data per file and create dict based on 
     projectEvidenceDetails = CodeInsight_RESTAPIs.project.get_project_evidence.get_project_evidence(baseURL, projectID, authToken)
-  
 
     # Dictionary to contain all of the file specific data
     fileEvidence = {}
@@ -150,11 +147,9 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
 
         # Check to see if the file was associated to an WIP or License only item
         # If it is set the inVenetory flag to false
-
         if FileName in filesNotInComponents:
             inInventory = "false"
 
-        
         # Is the file already in inventory or do we need to deal wtih it?
         if inInventory == "false":
             try:
@@ -162,14 +157,20 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
             except:
                 spdxPackages[nonInventoryPackageName]["containedFiles"] = [FileName]
 
-        
-
+        # Determine the file type.  Default to any specific mappings
         filename, file_extension = os.path.splitext(FileName)
         if file_extension in filetype_mappings.fileTypeMappings:
             scannedFileDetails["FileType"] = filetype_mappings.fileTypeMappings[file_extension]
+
         else:
-            logger.info("Unmapped file type extension for file: %s" %FileName)
-            scannedFileDetails["FileType"] = "OTHER"
+            # See if there is a MIME type associated to the file
+            fileType = mimetypes.MimeTypes().guess_type(FileName)[0]
+
+            if fileType:
+                scannedFileDetails["FileType"] = fileType.split("/")[0].upper()
+            else:
+                logger.info("Unmapped file type extension for file: %s" %FileName)
+                scannedFileDetails["FileType"] = "OTHER"
         
         scannedFileDetails["LicenseConcluded"] = "NOASSERTION"
 
