@@ -189,7 +189,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
         scannedFileDetails["fileMD5"] = scannedFile["fileMD5"]
         scannedFileDetails["fileSHA1"] = (hashlib.sha1(scannedFile["fileMD5"].encode('utf-8'))).hexdigest()
           
-        scannedFileDetails["SPDXID"] = "SPDXRef-File-" + FileName + "-" + ("remote" if remote else "server") + "-" + scannedFile["fileId"]
+        scannedFileDetails["SPDXID"] = "SPDXRef-File-" + ("remote" if remote else "server") + "-" + scannedFile["fileId"]
 
         fileContainsEvidence = scannedFile["containsEvidence"]   
 
