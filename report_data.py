@@ -65,11 +65,12 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
             
             # Contains the deatils for the package/inventory item
             spdxPackages[packageName] ={}
+            spdxPackages[packageName]["reportName"] = projectName + "-" + packageName.replace(" ", "_") + ".spdx"
             spdxPackages[packageName]["packageName"] = packageName
             spdxPackages[packageName]["SPDXID"] = "SPDXRef-Pkg-" + packageName
             spdxPackages[packageName]["PackageFileName"] = packageName
-            spdxPackages[packageName]["DocumentName"] =  packageName.replace(" ", "_")
-            spdxPackages[packageName]["DocumentNamespace"] = DocumentNamespaceBase + "/" + packageName.replace(" ", "_") + "-" + str(uuid.uuid1())
+            spdxPackages[packageName]["DocumentName"] =  projectName + "-" + packageName.replace(" ", "_")
+            spdxPackages[packageName]["DocumentNamespace"] = DocumentNamespaceBase + "/" + projectName + "-" + packageName.replace(" ", "_") + "-" + str(uuid.uuid1())
             spdxPackages[packageName]["PackageDownloadLocation"] = inventoryItem["componentUrl"]  # TODO Inventory URL??
             
             if len(PackageLicenseDeclared) == 0:
@@ -82,6 +83,9 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
 
             spdxPackages[packageName]["PackageLicenseDeclared"] = selectedLicenseSPDXIdentifier
             spdxPackages[packageName]["containedFiles"] = filesInInventory
+
+            
+
         else:
             # This is a WIP or License only item so take the files assocated here and include them in
             # in the files without inventory bucket
@@ -91,14 +95,16 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
     # Create a package to hold files not associated to an inventory item directly
     nonInventoryPackageName = "Files_without_inventory"
     spdxPackages[nonInventoryPackageName] ={}
+    spdxPackages[nonInventoryPackageName]["reportName"] = projectName + "-" + nonInventoryPackageName + ".spdx"
     spdxPackages[nonInventoryPackageName]["packageName"] = nonInventoryPackageName
     spdxPackages[nonInventoryPackageName]["SPDXID"] = "SPDXRef-Pkg-" + nonInventoryPackageName
     spdxPackages[nonInventoryPackageName]["PackageFileName"] = nonInventoryPackageName
-    spdxPackages[nonInventoryPackageName]["DocumentName"] =  nonInventoryPackageName.replace(" ", "_")
-    spdxPackages[nonInventoryPackageName]["DocumentNamespace"] = DocumentNamespaceBase + "/" + nonInventoryPackageName  + "-" + str(uuid.uuid1())
+    spdxPackages[nonInventoryPackageName]["DocumentName"] =  projectName + "-" + nonInventoryPackageName.replace(" ", "_")
+    spdxPackages[nonInventoryPackageName]["DocumentNamespace"] = DocumentNamespaceBase + "/" + projectName + "-" + nonInventoryPackageName.replace(" ", "_") + "-" + str(uuid.uuid1())
     spdxPackages[nonInventoryPackageName]["PackageDownloadLocation"] = "NOASSERTION"
     spdxPackages[nonInventoryPackageName]["PackageLicenseConcluded"] = "NOASSERTION"
     spdxPackages[nonInventoryPackageName]["PackageLicenseDeclared"] = "NOASSERTION"
+    
 
     # Dictionary to contain all of the file specific data
     fileDetails = {}

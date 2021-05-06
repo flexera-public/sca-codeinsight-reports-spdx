@@ -127,7 +127,7 @@ def generate_spdx_html_summary_report(reportData):
 
     for package in SPDXData["spdxPackages"]:
 
-        spdxReportName = reportName.replace(" ", "_") + "_" + package + ".spdx"
+        spdxReportName = SPDXData["spdxPackages"][package]["reportName"]
         html_ptr.write("<li class='list-group-item'>Generated SPDX report: <b>%s</b></li>\n" %spdxReportName)
 
     html_ptr.write("</ul>\n")
@@ -175,7 +175,7 @@ def generate_spdx_text_report(reportData):
         # Grab the current date/time for report date stamp
         now = datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
 
-        textFile = projectName.replace(" ", "_") + "-" + packageName + ".spdx"
+        textFile = packageData["reportName"] 
         logger.debug("textFile: %s" %textFile)
 
         try:
