@@ -189,7 +189,7 @@ def generate_spdx_text_report(reportData):
         report_ptr.write("SPDXID: SPDXRef-DOCUMENT\n")
         report_ptr.write("DocumentName: %s\n" %packageData["DocumentName"])
         report_ptr.write("DocumentNamespace: %s\n" %packageData["DocumentNamespace"])
-        report_ptr.write("Creator: Tool: %s" %SPDXData["Creator"])
+        report_ptr.write("Creator: Tool: %s\n" %SPDXData["Creator"])
         report_ptr.write("Created:  %s\n" %now)
 
         report_ptr.write("\n")
@@ -222,7 +222,7 @@ def generate_spdx_text_report(reportData):
             report_ptr.write("FileName: %s\n" %file)
             report_ptr.write("SPDXID: %s\n" %packageFiles[file]["SPDXID"])
             report_ptr.write("FileType: %s\n" %packageFiles[file]["FileType"])
-            #report_ptr.write("FileChecksum: SHA1: %s\n" %packageFiles[file]["SHA1"]) # TODO Add SHA1
+            report_ptr.write("FileChecksum: SHA1: %s\n" %packageFiles[file]["fileSHA1"])
             report_ptr.write("FileChecksum: MD5: %s\n" %packageFiles[file]["fileMD5"])
             report_ptr.write("LicenseConcluded: %s\n" %packageFiles[file]["LicenseConcluded"])
 

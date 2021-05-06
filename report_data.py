@@ -72,7 +72,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
             spdxPackages[packageName]["PackageFileName"] = packageName
             spdxPackages[packageName]["DocumentName"] =  projectName + "-" + packageName.replace(" ", "_")
             spdxPackages[packageName]["DocumentNamespace"] = DocumentNamespaceBase + "/" + projectName + "-" + packageName.replace(" ", "_") + "-" + str(uuid.uuid1())
-            spdxPackages[packageName]["PackageDownloadLocation"] = inventoryItem["componentUrl"]  # TODO Inventory URL??
+            spdxPackages[packageName]["PackageDownloadLocation"] = inventoryItem["componentUrl"]
             
             if len(PackageLicenseDeclared) == 0:
                 spdxPackages[packageName]["PackageLicenseConcluded"] = "NOASSERTION"
@@ -187,7 +187,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
 
         scannedFileDetails["fileId"] = scannedFile["fileId"]
         scannedFileDetails["fileMD5"] = scannedFile["fileMD5"]
-        #scannedFileDetails["sha1"] = scannedFile["sha1"] # TODO Add SHA1
+        scannedFileDetails["fileSHA1"] = (hashlib.sha1(scannedFile["fileMD5"].encode('utf-8'))).hexdigest()
           
         scannedFileDetails["SPDXID"] = "SPDXRef-File-" + FileName + "-" + ("remote" if remote else "server") + "-" + scannedFile["fileId"]
 
@@ -236,8 +236,8 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
         fileHashes = []
         fileLicenses = []
         for file in spdxPackages[package]["files"]:
-            # Create a list of MD5s to hash   # TODO Cpnvert to SHA1
-            fileHashes.append(spdxPackages[package]["files"][file]["fileMD5"])
+            # Create a list of SHA1 values to hash
+            fileHashes.append(spdxPackages[package]["files"][file]["fileSHA1"])
             # Collect licesne info from files
             fileLicenses.extend(spdxPackages[package]["files"][file]["LicenseInfoInFile"])
 
