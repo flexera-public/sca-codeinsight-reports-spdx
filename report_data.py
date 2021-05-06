@@ -32,7 +32,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
 
     projectInventory = CodeInsight_RESTAPIs.project.get_project_inventory.get_project_inventory_details_without_vulnerabilities(baseURL, projectID, authToken)
     inventoryItems = projectInventory["inventoryItems"]
-    projectName = projectInventory["projectName"]
+    projectName = projectInventory["projectName"].replace(" - ", "-").replace(" ", "_")
 
     spdxPackages = {}
     filesNotInComponents = []
@@ -47,7 +47,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
             componentName = inventoryItem["componentName"].replace(" ", "_")
             versionName = inventoryItem["componentVersionName"].replace(" ", "_").replace('/', '')
             inventoryID = inventoryItem["id"]
-            packageName = componentName + "_" + versionName + "_" + str(inventoryID)
+            packageName = componentName + "-" + versionName + "-" + str(inventoryID)
 
             logger.info("Processing %s" %(packageName))
             filesInInventory = inventoryItem["filePaths"]

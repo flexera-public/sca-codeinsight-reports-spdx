@@ -40,7 +40,7 @@ def generate_spdx_html_summary_report(reportData):
     logger.info("Entering generate_spdx_html_summary_report")
 
     reportName = reportData["reportName"]
-    projectName = reportData["projectName"]
+    projectName = reportData["projectName"].replace(" - ", "-").replace(" ", "_")
     SPDXData = reportData["SPDXData"]
 
     scriptDirectory = os.path.dirname(os.path.realpath(__file__))
@@ -56,7 +56,7 @@ def generate_spdx_html_summary_report(reportData):
     # Grab the current date/time for report date stamp
     now = datetime.now().strftime("%B %d, %Y at %H:%M:%S")
 
-    htmlFile = reportName.replace(" ", "_") + ".html"
+    htmlFile = projectName + "-" + reportName.replace(" ", "_") + ".html"
     logger.debug("htmlFile: %s" %htmlFile)
     
     #---------------------------------------------------------------------------------------------------
@@ -161,6 +161,7 @@ def generate_spdx_text_report(reportData):
     
     reportName = reportData["reportName"]
     reportVersion = reportData["reportVersion"]
+    projectName = reportData["projectName"]
     SPDXData = reportData["SPDXData"]
 
     SPDXReports = []
@@ -174,7 +175,7 @@ def generate_spdx_text_report(reportData):
         # Grab the current date/time for report date stamp
         now = datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
 
-        textFile = reportName.replace(" ", "_") + "_" + packageName + ".spdx"
+        textFile = projectName.replace(" ", "_") + "-" + packageName + ".spdx"
         logger.debug("textFile: %s" %textFile)
 
         try:
