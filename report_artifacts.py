@@ -239,7 +239,7 @@ def generate_spdx_text_report(reportData):
         report_ptr.write("##------------------------------\n")
         report_ptr.write("\n")
 
-        report_ptr.write("Relationship: %s DESCIBES %s\n" %("SPDXRef-DOCUMENT", packageData["SPDXID"] ))
+        report_ptr.write("Relationship: %s DESCRIBES %s\n" %("SPDXRef-DOCUMENT", packageData["SPDXID"] ))
         report_ptr.write("Relationship: %s DESCRIBED_BY  %s\n" %(packageData["SPDXID"], "SPDXRef-DOCUMENT" ))
 
         report_ptr.write("\n")
