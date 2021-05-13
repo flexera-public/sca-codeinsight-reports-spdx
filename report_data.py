@@ -57,7 +57,12 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
             try:
                 possibleLicenses = inventoryItem["possibleLicenses"]
                 for license in possibleLicenses:
-                    PackageLicenseDeclared.append(license["licenseSPDXIdentifier"]) 
+                    
+                    if license["licenseSPDXIdentifier"] in SPDX_license_mappings.LICENSEMAPPINGS:
+                        PackageLicenseDeclared.append(SPDX_license_mappings.LICENSEMAPPINGS[license["licenseSPDXIdentifier"]])
+                    else:
+                        PackageLicenseDeclared.append(license["licenseSPDXIdentifier"]) 
+                    
             except:
 
                 PackageLicenseDeclared.append(["NOASSERTION"])     
