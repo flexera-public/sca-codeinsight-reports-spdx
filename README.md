@@ -32,6 +32,21 @@ There is one locations that require updates to provide the report scripts detail
 
 For registration purposes update the **baseURL** and **adminAuthToken** values within [registration.py](registration.py) to reflect the correct values to allow the report itself to be registered on the Code Insight server.
 
+### Registering the Report
+
+
+Prior to being able to call the script directly from within Code Insight it must be registered. The registration.py file can be used to directly register the report once the contents of this repository have been copied into the custom_report_script folder at the base Code Insight installation directory.
+
+To register this report:
+
+    python registration.py -reg
+
+
+To unregister this report:
+
+    python registration.py -unreg
+
+
 ## Usage
 
 This report is executed directly from within Revenera's Code Insight product. From the project reports tab of each Code Insight project it is possible to *generate* the **SPDX Report** via the Custom Report Framework.
@@ -54,20 +69,6 @@ For this example report these three items are passed on to a batch or sh file wh
 - Upload this combined zip file to Code Insight via REST API
 - Delete the report artifacts that were created as the script ran
 
-
-### Registering the Report
-
-
-Prior to being able to call the script directly from within Code Insight it must be registered. The registration.py file can be used to directly register the report once the contents of this repository have been copied into the custom_report_script folder at the base Code Insight installation directory.
-
-To register this report:
-
-    python registration.py -reg
-
-
-To unregister this report:
-
-    python registration.py -unreg
 
 ## License
 
