@@ -1,6 +1,6 @@
 # sca-codeinsight-reports-spdx
 
-The sca-codeinsight-reports-spdx repository is a report for Revenera's Code Insight product. This report allows a user to generate a SPDX report for each inventory item to describe the files within that inventory item
+The sca-codeinsight-reports-spdx repository is a report for Revenera's Code Insight product. This report allows a user to generate an SPDX report representing the software bill of material (SBOM) information, including components, licenses, copyrights, and security references. The report is generated for the selected project and includes a separate SPDX document for each  inventory item (SBOM item).
 
 
 ## Prerequisites
@@ -15,7 +15,7 @@ The sca-codeinsight-reports-spdx repository is a report for Revenera's Code Insi
 
 **Submodule Repositories**
 
-This repository contains one submodules pointing to another git repo for code that can be in common to multiple projects. After the initial clone of sca-codeinsight-reports-spdx you will need to enter the cloned directory, link and pull down the necessary code via
+This repository contains one submodule pointing to another git repo for code that can be in common to multiple projects. After the initial clone of sca-codeinsight-reports-spdx you will need to enter the cloned directory, link and pull down the necessary code via
 
     git submodule init
     git submodule update
@@ -34,7 +34,7 @@ For registration purposes update the **baseURL** and **adminAuthToken** values w
 
 ## Usage
 
-This report is executed directly from within Revenera's Code Insight product. From the summary page of each Code Insight project it is possible to *generate* the **SPDX Report** via the Custom Report Framework. Once this report is selected the second project for comparison can be selected
+This report is executed directly from within Revenera's Code Insight product. From the project reports tab of each Code Insight project it is possible to *generate* the **SPDX Report** via the Custom Report Framework.
 
 The Code Insight Custom Report Framework will provide the following to the custom report when initiated:
 
@@ -53,7 +53,6 @@ For this example report these three items are passed on to a batch or sh file wh
   - Create a zip file with the viewable file and the downloadable file
 - Upload this combined zip file to Code Insight via REST API
 - Delete the report artifacts that were created as the script ran
-
 
 
 ### Registering the Report
