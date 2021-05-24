@@ -16,6 +16,7 @@ import mimetypes
 import CodeInsight_RESTAPIs.project.get_project_inventory
 import CodeInsight_RESTAPIs.project.get_scanned_files
 import CodeInsight_RESTAPIs.project.get_project_evidence
+import CodeInsight_RESTAPIs.project.get_child_projects
 
 import SPDX_license_mappings # To map evidence to an SPDX license name
 import filetype_mappings
@@ -26,237 +27,273 @@ logger = logging.getLogger(__name__)
 def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVersion):
     logger.info("Entering gather_data_for_report")
 
+    # Replace with report option
+    includeChildProjects  = "true"
+
     SPDXVersion = "SPDX-2.2"
     DataLicense = "CC0-1.0"
     DocumentNamespaceBase = "http:/spdx.org/spdxdocs"  # This shold be modified for each Code Insight instance
     Creator = "Code Insight"
 
-    projectInventory = CodeInsight_RESTAPIs.project.get_project_inventory.get_project_inventory_details_without_vulnerabilities(baseURL, projectID, authToken)
-    inventoryItems = projectInventory["inventoryItems"]
-    projectName = projectInventory["projectName"].replace(" - ", "-").replace(" ", "_")
+    projectList = [] # List to hold parent/child details for report
+    projectData = {} # Create a dictionary containing the project level summary data using projectID as keys
 
-    spdxPackages = {}
-    filesNotInComponents = []
+    # Get the list of parent/child projects start at the base project
+    projectHierarchy = CodeInsight_RESTAPIs.project.get_child_projects.get_child_projects_recursively(baseURL, projectID, authToken)
 
-    for inventoryItem in inventoryItems:
-        
-        inventoryType = inventoryItem["type"]
-        
-        # Seperate out Inventory vs WIP or License Only items
-        if inventoryType == "Component":
+    # Create a list of project data sorted by the project name at each level for report display  
+    # Add details for the parent node
+    nodeDetails = {}
+    nodeDetails["parent"] = "#"  # The root node
+    nodeDetails["projectName"] = projectHierarchy["name"]
+    nodeDetails["projectID"] = projectHierarchy["id"]
+    nodeDetails["projectLink"] = baseURL + "/codeinsight/FNCI#myprojectdetails/?id=" + str(projectHierarchy["id"]) + "&tab=projectInventory"
 
-            componentName = inventoryItem["componentName"].replace(" ", "_")
-            versionName = inventoryItem["componentVersionName"].replace(" ", "_").replace('/', '')
-            inventoryID = inventoryItem["id"]
-            packageName = componentName + "-" + versionName + "-" + str(inventoryID)
+    projectList.append(nodeDetails)
 
-            logger.info("Processing %s" %(packageName))
-            filesInInventory = inventoryItem["filePaths"]
+    if includeChildProjects == "true":
+        projectList = create_project_hierarchy(projectHierarchy, projectHierarchy["id"], projectList, baseURL)
+    else:
+        logger.debug("Child hierarchy disabled")
 
-            PackageLicenseDeclared = []
-            try:
-                possibleLicenses = inventoryItem["possibleLicenses"]
-                for license in possibleLicenses:
-                    
-                    if license["licenseSPDXIdentifier"] in SPDX_license_mappings.LICENSEMAPPINGS:
-                        PackageLicenseDeclared.append(SPDX_license_mappings.LICENSEMAPPINGS[license["licenseSPDXIdentifier"]])
-                    else:
-                        PackageLicenseDeclared.append(license["licenseSPDXIdentifier"]) 
-                    
-            except:
 
-                PackageLicenseDeclared.append(["NOASSERTION"])     
+    #  Gather the details for each project and summerize the data
+    for project in projectList:
+
+        projectID = project["projectID"]
+        projectName = project["projectName"].replace(" - ", "-").replace(" ", "_")
+
+        projectInventory = CodeInsight_RESTAPIs.project.get_project_inventory.get_project_inventory_details_without_vulnerabilities(baseURL, projectID, authToken)
+        inventoryItems = projectInventory["inventoryItems"]
+
+        # Create empty dictionary for project level data for this project
+        projectData[projectName] = {}
+  
+        spdxPackages = {}
+        filesNotInComponents = []
+
+        for inventoryItem in inventoryItems:
             
-            selectedLicenseSPDXIdentifier = inventoryItem["selectedLicenseSPDXIdentifier"]
+            inventoryType = inventoryItem["type"]
             
-            # Contains the deatils for the package/inventory item
-            spdxPackages[packageName] ={}
-            spdxPackages[packageName]["reportName"] = projectName + "-" + packageName.replace(" ", "_") + ".spdx"
-            spdxPackages[packageName]["packageName"] = packageName
-            spdxPackages[packageName]["SPDXID"] = "SPDXRef-Pkg-" + packageName
-            spdxPackages[packageName]["PackageFileName"] = packageName
-            spdxPackages[packageName]["DocumentName"] =  projectName + "-" + packageName.replace(" ", "_")
-            spdxPackages[packageName]["DocumentNamespace"] = DocumentNamespaceBase + "/" + projectName + "-" + packageName.replace(" ", "_") + "-" + str(uuid.uuid1())
-            spdxPackages[packageName]["PackageDownloadLocation"] = inventoryItem["componentUrl"]
+            # Seperate out Inventory vs WIP or License Only items
+            if inventoryType == "Component":
+
+                componentName = inventoryItem["componentName"].replace(" ", "_")
+                versionName = inventoryItem["componentVersionName"].replace(" ", "_").replace('/', '')
+                inventoryID = inventoryItem["id"]
+                packageName = componentName + "-" + versionName + "-" + str(inventoryID)
+
+                logger.info("Processing %s" %(packageName))
+                filesInInventory = inventoryItem["filePaths"]
+
+                PackageLicenseDeclared = []
+                try:
+                    possibleLicenses = inventoryItem["possibleLicenses"]
+                    for license in possibleLicenses:
+                        
+                        if license["licenseSPDXIdentifier"] in SPDX_license_mappings.LICENSEMAPPINGS:
+                            PackageLicenseDeclared.append(SPDX_license_mappings.LICENSEMAPPINGS[license["licenseSPDXIdentifier"]])
+                        else:
+                            PackageLicenseDeclared.append(license["licenseSPDXIdentifier"]) 
+                        
+                except:
+
+                    PackageLicenseDeclared.append(["NOASSERTION"])     
+                
+                selectedLicenseSPDXIdentifier = inventoryItem["selectedLicenseSPDXIdentifier"]
+                
+                # Contains the deatils for the package/inventory item
+                spdxPackages[packageName] ={}
+                spdxPackages[packageName]["reportName"] = projectName + "-" + packageName.replace(" ", "_") + ".spdx"
+                spdxPackages[packageName]["packageName"] = packageName
+                spdxPackages[packageName]["SPDXID"] = "SPDXRef-Pkg-" + packageName
+                spdxPackages[packageName]["PackageFileName"] = packageName
+                spdxPackages[packageName]["DocumentName"] =  projectName + "-" + packageName.replace(" ", "_")
+                spdxPackages[packageName]["DocumentNamespace"] = DocumentNamespaceBase + "/" + projectName + "-" + packageName.replace(" ", "_") + "-" + str(uuid.uuid1())
+                spdxPackages[packageName]["PackageDownloadLocation"] = inventoryItem["componentUrl"]
+                
+                if len(PackageLicenseDeclared) == 0:
+                    spdxPackages[packageName]["PackageLicenseConcluded"] = "NOASSERTION"
+                elif len(PackageLicenseDeclared) == 1:
+                    spdxPackages[packageName]["PackageLicenseConcluded"] = PackageLicenseDeclared[0]
+                else:
+                    spdxPackages[packageName]["PackageLicenseConcluded"] = "(" + ' OR '.join(sorted(PackageLicenseDeclared)) + ")"
             
-            if len(PackageLicenseDeclared) == 0:
-                spdxPackages[packageName]["PackageLicenseConcluded"] = "NOASSERTION"
-            elif len(PackageLicenseDeclared) == 1:
-                spdxPackages[packageName]["PackageLicenseConcluded"] = PackageLicenseDeclared[0]
+
+                spdxPackages[packageName]["PackageLicenseDeclared"] = selectedLicenseSPDXIdentifier
+                spdxPackages[packageName]["containedFiles"] = filesInInventory
+
+                
+
             else:
-                spdxPackages[packageName]["PackageLicenseConcluded"] = "(" + ' OR '.join(sorted(PackageLicenseDeclared)) + ")"
-        
+                # This is a WIP or License only item so take the files assocated here and include them in
+                # in the files without inventory bucket
+                for file in inventoryItem["filePaths"]:
+                    filesNotInComponents.append(file)
 
-            spdxPackages[packageName]["PackageLicenseDeclared"] = selectedLicenseSPDXIdentifier
-            spdxPackages[packageName]["containedFiles"] = filesInInventory
-
-            
-
-        else:
-            # This is a WIP or License only item so take the files assocated here and include them in
-            # in the files without inventory bucket
-            for file in inventoryItem["filePaths"]:
-                filesNotInComponents.append(file)
-
-    # Create a package to hold files not associated to an inventory item directly
-    nonInventoryPackageName = "OtherFiles"
-    spdxPackages[nonInventoryPackageName] ={}
-    spdxPackages[nonInventoryPackageName]["reportName"] = projectName + "-" + nonInventoryPackageName + ".spdx"
-    spdxPackages[nonInventoryPackageName]["packageName"] = nonInventoryPackageName
-    spdxPackages[nonInventoryPackageName]["SPDXID"] = "SPDXRef-Pkg-" + nonInventoryPackageName
-    spdxPackages[nonInventoryPackageName]["PackageFileName"] = nonInventoryPackageName
-    spdxPackages[nonInventoryPackageName]["DocumentName"] =  projectName + "-" + nonInventoryPackageName.replace(" ", "_")
-    spdxPackages[nonInventoryPackageName]["DocumentNamespace"] = DocumentNamespaceBase + "/" + projectName + "-" + nonInventoryPackageName.replace(" ", "_") + "-" + str(uuid.uuid1())
-    spdxPackages[nonInventoryPackageName]["PackageDownloadLocation"] = "NOASSERTION"
-    spdxPackages[nonInventoryPackageName]["PackageLicenseConcluded"] = "NOASSERTION"
-    spdxPackages[nonInventoryPackageName]["PackageLicenseDeclared"] = "NOASSERTION"
+        # Create a package to hold files not associated to an inventory item directly
+        nonInventoryPackageName = "OtherFiles"
+        spdxPackages[nonInventoryPackageName] ={}
+        spdxPackages[nonInventoryPackageName]["reportName"] = projectName + "-" + nonInventoryPackageName + ".spdx"
+        spdxPackages[nonInventoryPackageName]["packageName"] = nonInventoryPackageName
+        spdxPackages[nonInventoryPackageName]["containedFiles"] = []
+        spdxPackages[nonInventoryPackageName]["SPDXID"] = "SPDXRef-Pkg-" + nonInventoryPackageName
+        spdxPackages[nonInventoryPackageName]["PackageFileName"] = nonInventoryPackageName
+        spdxPackages[nonInventoryPackageName]["DocumentName"] =  projectName + "-" + nonInventoryPackageName.replace(" ", "_")
+        spdxPackages[nonInventoryPackageName]["DocumentNamespace"] = DocumentNamespaceBase + "/" + projectName + "-" + nonInventoryPackageName.replace(" ", "_") + "-" + str(uuid.uuid1())
+        spdxPackages[nonInventoryPackageName]["PackageDownloadLocation"] = "NOASSERTION"
+        spdxPackages[nonInventoryPackageName]["PackageLicenseConcluded"] = "NOASSERTION"
+        spdxPackages[nonInventoryPackageName]["PackageLicenseDeclared"] = "NOASSERTION"
     
 
-    # Dictionary to contain all of the file specific data
-    fileDetails = {}
-    fileDetails["remoteFiles"] = {}
-    fileDetails["localFiles"] = {}
+        # Dictionary to contain all of the file specific data
+        fileDetails = {}
+        fileDetails["remoteFiles"] = {}
+        fileDetails["localFiles"] = {}
 
-    # Collect the copyright/license data per file and create dict based on 
-    projectEvidenceDetails = CodeInsight_RESTAPIs.project.get_project_evidence.get_project_evidence(baseURL, projectID, authToken)
+        # Collect the copyright/license data per file and create dict based on 
+        projectEvidenceDetails = CodeInsight_RESTAPIs.project.get_project_evidence.get_project_evidence(baseURL, projectID, authToken)
 
-    # Dictionary to contain all of the file specific data
-    fileEvidence = {}
-    fileEvidence["remoteFiles"] = {}
-    fileEvidence["localFiles"] = {}
-    for fileEvidenceDetails in projectEvidenceDetails["data"]:
-        evidence = {}
-        remote = fileEvidenceDetails["remote"]
-        filePath = fileEvidenceDetails["filePath"]
-        evidence["copyrightEvidienceFound"] = fileEvidenceDetails["copyRightMatches"]
+        # Dictionary to contain all of the file specific data
+        fileEvidence = {}
+        fileEvidence["remoteFiles"] = {}
+        fileEvidence["localFiles"] = {}
+        for fileEvidenceDetails in projectEvidenceDetails["data"]:
+            evidence = {}
+            remote = fileEvidenceDetails["remote"]
+            filePath = fileEvidenceDetails["filePath"]
+            evidence["copyrightEvidienceFound"] = fileEvidenceDetails["copyRightMatches"]
 
-        # The license evidience is not in SPDX form so consolidate and map
-        licenseEvidenceFound = list(set(fileEvidenceDetails["licenseMatches"]))
-        for index, licenseEvidence in enumerate(licenseEvidenceFound):
-            if licenseEvidence in SPDX_license_mappings.LICENSEMAPPINGS:
-                licenseEvidenceFound[index] = SPDX_license_mappings.LICENSEMAPPINGS[licenseEvidence]
+            # The license evidience is not in SPDX form so consolidate and map
+            licenseEvidenceFound = list(set(fileEvidenceDetails["licenseMatches"]))
+            for index, licenseEvidence in enumerate(licenseEvidenceFound):
+                if licenseEvidence in SPDX_license_mappings.LICENSEMAPPINGS:
+                    licenseEvidenceFound[index] = SPDX_license_mappings.LICENSEMAPPINGS[licenseEvidence]
+                else:
+                    logger.info("Unmapped License to SPDX ID in file evidence: %s" %licenseEvidence)
+
+                
+
+            if len(licenseEvidenceFound) == 0:
+                evidence["licenseEvidenceFound"] = ["NONE"]
             else:
-                logger.info("Unmapped License to SPDX ID in file evidence: %s" %licenseEvidence)
+                evidence["licenseEvidenceFound"] = licenseEvidenceFound  
 
-               
-
-        if len(licenseEvidenceFound) == 0:
-            evidence["licenseEvidenceFound"] = ["NONE"]
-        else:
-            evidence["licenseEvidenceFound"] = licenseEvidenceFound  
-
-        if remote:
-            fileEvidence["localFiles"][filePath] = evidence
-        else: 
-            fileEvidence["remoteFiles"][filePath] = evidence
+            if remote:
+                fileEvidence["localFiles"][filePath] = evidence
+            else: 
+                fileEvidence["remoteFiles"][filePath] = evidence
 
 
-    # Collect a list of the scanned files
-    scannedFiles = CodeInsight_RESTAPIs.project.get_scanned_files.get_scanned_files_details(baseURL, projectID, authToken)
+        # Collect a list of the scanned files
+        scannedFiles = CodeInsight_RESTAPIs.project.get_scanned_files.get_scanned_files_details(baseURL, projectID, authToken)
 
-    # Cycle through each scanned file
-    for scannedFile in scannedFiles:
-        scannedFileDetails = {}
-        remoteFile = scannedFile["remote"]
-        FileName = scannedFile["filePath"]  
-        inInventory = scannedFile["inInventory"]  
+        # Cycle through each scanned file
+        for scannedFile in scannedFiles:
+            scannedFileDetails = {}
+            remoteFile = scannedFile["remote"]
+            FileName = scannedFile["filePath"]  
+            inInventory = scannedFile["inInventory"]  
 
-        # Check to see if the file was associated to an WIP or License only item
-        # If it is set the inVenetory flag to false
-        if FileName in filesNotInComponents:
-            inInventory = "false"
+            # Check to see if the file was associated to an WIP or License only item
+            # If it is set the inVenetory flag to false
+            if FileName in filesNotInComponents:
+                inInventory = "false"
 
-        # Is the file already in inventory or do we need to deal wtih it?
-        if inInventory == "false":
-            try:
-                spdxPackages[nonInventoryPackageName]["containedFiles"].append(FileName)
-            except:
-                spdxPackages[nonInventoryPackageName]["containedFiles"] = [FileName]
+            # Is the file already in inventory or do we need to deal wtih it?
+            if inInventory == "false":
+                try:
+                    spdxPackages[nonInventoryPackageName]["containedFiles"].append(FileName)
+                except:
+                    spdxPackages[nonInventoryPackageName]["containedFiles"] = [FileName]
 
-        # Determine the file type.  Default to any specific mappings
-        filename, file_extension = os.path.splitext(FileName)
-        if file_extension in filetype_mappings.fileTypeMappings:
-            scannedFileDetails["FileType"] = filetype_mappings.fileTypeMappings[file_extension]
+            # Determine the file type.  Default to any specific mappings
+            filename, file_extension = os.path.splitext(FileName)
+            if file_extension in filetype_mappings.fileTypeMappings:
+                scannedFileDetails["FileType"] = filetype_mappings.fileTypeMappings[file_extension]
 
-        else:
-            # See if there is a MIME type associated to the file
-            fileType = mimetypes.MimeTypes().guess_type(FileName)[0]
-
-            if fileType:
-                scannedFileDetails["FileType"] = fileType.split("/")[0].upper()
             else:
-                logger.info("Unmapped file type extension for file: %s" %FileName)
-                scannedFileDetails["FileType"] = "OTHER"
-        
-        scannedFileDetails["LicenseConcluded"] = "NOASSERTION"
+                # See if there is a MIME type associated to the file
+                fileType = mimetypes.MimeTypes().guess_type(FileName)[0]
 
-        scannedFileDetails["fileId"] = scannedFile["fileId"]
-        scannedFileDetails["fileMD5"] = scannedFile["fileMD5"]
-        scannedFileDetails["fileSHA1"] = (hashlib.sha1(scannedFile["fileMD5"].encode('utf-8'))).hexdigest()
-          
-        scannedFileDetails["SPDXID"] = "SPDXRef-File-" + ("remote" if remote else "server") + "-" + scannedFile["fileId"]
+                if fileType:
+                    scannedFileDetails["FileType"] = fileType.split("/")[0].upper()
+                else:
+                    logger.info("Unmapped file type extension for file: %s" %FileName)
+                    scannedFileDetails["FileType"] = "OTHER"
+            
+            scannedFileDetails["LicenseConcluded"] = "NOASSERTION"
 
-        fileContainsEvidence = scannedFile["containsEvidence"]   
+            scannedFileDetails["fileId"] = scannedFile["fileId"]
+            scannedFileDetails["fileMD5"] = scannedFile["fileMD5"]
+            scannedFileDetails["fileSHA1"] = (hashlib.sha1(scannedFile["fileMD5"].encode('utf-8'))).hexdigest()
+            
+            scannedFileDetails["SPDXID"] = "SPDXRef-File-" + ("remote" if remote else "server") + "-" + scannedFile["fileId"]
 
-        if fileContainsEvidence:
-            scannedFileDetails["LicenseInfoInFile"] = []
+            fileContainsEvidence = scannedFile["containsEvidence"]   
+
+            if fileContainsEvidence:
+                scannedFileDetails["LicenseInfoInFile"] = []
+
+                if remoteFile:
+                    if fileEvidence["remoteFiles"][FileName]["copyrightEvidienceFound"]:
+                        scannedFileDetails["FileCopyrightText"] = fileEvidence["remoteFiles"][FileName]["copyrightEvidienceFound"]
+                    else:
+                        scannedFileDetails["FileCopyrightText"] = ["NOASSERTION"]
+
+                    if fileEvidence["remoteFiles"][FileName]["licenseEvidenceFound"]:
+                        scannedFileDetails["LicenseInfoInFile"] = fileEvidence["remoteFiles"][FileName]["licenseEvidenceFound"]
+
+
+                else:
+                    if fileEvidence["localFiles"][FileName]["copyrightEvidienceFound"]:
+                        scannedFileDetails["FileCopyrightText"] = fileEvidence["localFiles"][FileName]["copyrightEvidienceFound"]
+                    else:
+                        scannedFileDetails["FileCopyrightText"] = ["NOASSERTION"]
+                    if fileEvidence["localFiles"][FileName]["licenseEvidenceFound"]:
+                        scannedFileDetails["LicenseInfoInFile"] = fileEvidence["localFiles"][FileName]["licenseEvidenceFound"]
+
 
             if remoteFile:
-                if fileEvidence["remoteFiles"][FileName]["copyrightEvidienceFound"]:
-                    scannedFileDetails["FileCopyrightText"] = fileEvidence["remoteFiles"][FileName]["copyrightEvidienceFound"]
+                fileDetails["localFiles"][FileName] = scannedFileDetails
+            else: 
+                fileDetails["remoteFiles"][FileName] = scannedFileDetails
+
+
+        # Merge the results to map each package (inventory item) with the assocaited files
+        for package in spdxPackages:
+        
+            spdxPackages[package]["files"] = {}   
+
+            for file in spdxPackages[package]["containedFiles"]:
+                if file in fileDetails["localFiles"]:
+                    spdxPackages[package]["files"][file] =  fileDetails["localFiles"][file]
+                elif file in fileDetails["remoteFiles"]:
+                    spdxPackages[package]["files"][file] =  fileDetails["remoteFiles"][file]
                 else:
-                    scannedFileDetails["FileCopyrightText"] = ["NOASSERTION"]
+                    logger.error("Not possible since every file in an inventory item is in the file details dict")
 
-                if fileEvidence["remoteFiles"][FileName]["licenseEvidenceFound"]:
-                    scannedFileDetails["LicenseInfoInFile"] = fileEvidence["remoteFiles"][FileName]["licenseEvidenceFound"]
+            fileHashes = []
+            fileLicenses = []
+            for file in spdxPackages[package]["files"]:
+                # Create a list of SHA1 values to hash
+                fileHashes.append(spdxPackages[package]["files"][file]["fileSHA1"])
+                # Collect licesne info from files
+                fileLicenses.extend(spdxPackages[package]["files"][file]["LicenseInfoInFile"])
 
+            # Create a hash of the file hashes for PackageVerificationCode
+            stringHash = ''.join(sorted(fileHashes))
+            spdxPackages[package]["PackageVerificationCode"] = (hashlib.sha1(stringHash.encode('utf-8'))).hexdigest()
+            spdxPackages[package]["PackageLicenseInfoFromFiles"] = set(fileLicenses)
 
-            else:
-                if fileEvidence["localFiles"][FileName]["copyrightEvidienceFound"]:
-                    scannedFileDetails["FileCopyrightText"] = fileEvidence["localFiles"][FileName]["copyrightEvidienceFound"]
-                else:
-                    scannedFileDetails["FileCopyrightText"] = ["NOASSERTION"]
-                if fileEvidence["localFiles"][FileName]["licenseEvidenceFound"]:
-                    scannedFileDetails["LicenseInfoInFile"] = fileEvidence["localFiles"][FileName]["licenseEvidenceFound"]
-
-
-        if remoteFile:
-            fileDetails["localFiles"][FileName] = scannedFileDetails
-        else: 
-            fileDetails["remoteFiles"][FileName] = scannedFileDetails
-
-
-    # Merge the results to map each package (inventory item) with the assocaited files
-    for package in spdxPackages:
-        spdxPackages[package]["files"] = {}
-                
-        for file in spdxPackages[package]["containedFiles"]:
-            if file in fileDetails["localFiles"]:
-                spdxPackages[package]["files"][file] =  fileDetails["localFiles"][file]
-            elif file in fileDetails["remoteFiles"]:
-                spdxPackages[package]["files"][file] =  fileDetails["remoteFiles"][file]
-            else:
-                logger.error("Not possible since every file in an inventory item is in the file details dict")
-
-        fileHashes = []
-        fileLicenses = []
-        for file in spdxPackages[package]["files"]:
-            # Create a list of SHA1 values to hash
-            fileHashes.append(spdxPackages[package]["files"][file]["fileSHA1"])
-            # Collect licesne info from files
-            fileLicenses.extend(spdxPackages[package]["files"][file]["LicenseInfoInFile"])
-
-        # Create a hash of the file hashes for PackageVerificationCode
-        stringHash = ''.join(sorted(fileHashes))
-        spdxPackages[package]["PackageVerificationCode"] = (hashlib.sha1(stringHash.encode('utf-8'))).hexdigest()
-        spdxPackages[package]["PackageLicenseInfoFromFiles"] = set(fileLicenses)
-
+        projectData[projectName]["spdxPackages"] = spdxPackages
 
     SPDXData = {}
     SPDXData["SPDXVersion"] = SPDXVersion
     SPDXData["DataLicense"] = DataLicense
     SPDXData["Creator"] = Creator
-    SPDXData["spdxPackages"] = spdxPackages
+    SPDXData["projectData"] = projectData
 
     reportData = {}
     reportData["reportName"] = reportName
@@ -268,5 +305,26 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
     return reportData
 
 
+#----------------------------------------------#
+def create_project_hierarchy(project, parentID, projectList, baseURL):
+    logger.debug("Entering create_project_hierarchy")
+
+    # Are there more child projects for this project?
+    if len(project["childProject"]):
+
+        # Sort by project name of child projects
+        for childProject in sorted(project["childProject"], key = lambda i: i['name'] ) :
+
+            nodeDetails = {}
+            nodeDetails["projectID"] = childProject["id"]
+            nodeDetails["parent"] = parentID
+            nodeDetails["projectName"] = childProject["name"]
+            nodeDetails["projectLink"] = baseURL + "/codeinsight/FNCI#myprojectdetails/?id=" + str(childProject["id"]) + "&tab=projectInventory"
+
+            projectList.append( nodeDetails )
+
+            create_project_hierarchy(childProject, childProject["id"], projectList, baseURL)
+
+    return projectList
 
 

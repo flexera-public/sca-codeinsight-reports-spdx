@@ -124,12 +124,17 @@ def generate_spdx_html_summary_report(reportData):
     html_ptr.write("<H5>Individual SPDX report files for project <b>%s</b>, may be found within the downloadable zip file from the project reports tab.</H5><p>\n" %projectName)
 
     html_ptr.write("<ul class='list-group list-group-flush'>\n")
+    for projectName in SPDXData["projectData"]:
+        html_ptr.write("<li class='list-group-item'>Project: <b>%s</b></li>\n" %projectName)
+        
+        html_ptr.write("<ul class='list-group list-group-flush'>\n")
 
-    for package in SPDXData["spdxPackages"]:
+        for package in SPDXData["projectData"][projectName]["spdxPackages"]:
+            spdxReportName = SPDXData["projectData"][projectName]["spdxPackages"][package]["reportName"]
+            html_ptr.write("<li class='list-group-item'>Generated SPDX report: <b>%s</b></li>\n" %spdxReportName)
 
-        spdxReportName = SPDXData["spdxPackages"][package]["reportName"]
-        html_ptr.write("<li class='list-group-item'>Generated SPDX report: <b>%s</b></li>\n" %spdxReportName)
-
+        html_ptr.write("</ul>\n")
+        html_ptr.write("<hr>\n")  # Add color?
     html_ptr.write("</ul>\n")
 
     html_ptr.write("<!-- END BODY -->\n")  
@@ -166,91 +171,94 @@ def generate_spdx_text_report(reportData):
 
     SPDXReports = []
 
-    for package in SPDXData["spdxPackages"]:
-        packageData = SPDXData["spdxPackages"][package]
+    for projectName in SPDXData["projectData"]:
 
-        packageName = packageData["packageName"]
-        packageFiles = packageData["files"]
-    
-        # Grab the current date/time for report date stamp
-        now = datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
+        for package in SPDXData["projectData"][projectName]["spdxPackages"]:
 
-        textFile = packageData["reportName"] 
-        logger.debug("textFile: %s" %textFile)
+            packageData = SPDXData["projectData"][projectName]["spdxPackages"][package]
 
-        try:
-            report_ptr = open(textFile,"w")
-        except:
-            logger.error("Failed to open textFile %s:" %textFile)
-            raise
+            packageName = packageData["packageName"]
+            packageFiles = packageData["files"]
+        
+            # Grab the current date/time for report date stamp
+            now = datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
 
-        report_ptr.write("SPDXVersion: %s\n" %SPDXData["SPDXVersion"])
-        report_ptr.write("DataLicense: %s\n" %SPDXData["DataLicense"])
-        report_ptr.write("SPDXID: SPDXRef-DOCUMENT\n")
-        report_ptr.write("DocumentName: %s\n" %packageData["DocumentName"])
-        report_ptr.write("DocumentNamespace: %s\n" %packageData["DocumentNamespace"])
-        report_ptr.write("Creator: Tool: %s\n" %SPDXData["Creator"])
-        report_ptr.write("Created:  %s\n" %now)
+            textFile = packageData["reportName"] 
+            logger.debug("textFile: %s" %textFile)
 
-        report_ptr.write("\n")
-        report_ptr.write("##------------------------------\n")
-        report_ptr.write("##  Package Information\n")
-        report_ptr.write("##------------------------------\n")
-        report_ptr.write("\n")
+            try:
+                report_ptr = open(textFile,"w")
+            except:
+                logger.error("Failed to open textFile %s:" %textFile)
+                raise
 
-        report_ptr.write("PackageName: %s\n" %packageName)
-        report_ptr.write("SPDXID: %s\n" %(packageData["SPDXID"]))
-        report_ptr.write("PackageDownloadLocation: %s\n" %packageData["PackageDownloadLocation"])
-        report_ptr.write("PackageVerificationCode: %s\n" %packageData["PackageVerificationCode"])
+            report_ptr.write("SPDXVersion: %s\n" %SPDXData["SPDXVersion"])
+            report_ptr.write("DataLicense: %s\n" %SPDXData["DataLicense"])
+            report_ptr.write("SPDXID: SPDXRef-DOCUMENT\n")
+            report_ptr.write("DocumentName: %s\n" %packageData["DocumentName"])
+            report_ptr.write("DocumentNamespace: %s\n" %packageData["DocumentNamespace"])
+            report_ptr.write("Creator: Tool: %s\n" %SPDXData["Creator"])
+            report_ptr.write("Created:  %s\n" %now)
 
-        report_ptr.write("PackageLicenseConcluded: %s\n" %packageData["PackageLicenseConcluded"])
-
-        for licenseFromFile in packageData["PackageLicenseInfoFromFiles"]:
-            report_ptr.write("PackageLicenseInfoFromFiles: %s\n" %licenseFromFile)
-
-        report_ptr.write("PackageLicenseDeclared: %s\n" %packageData["PackageLicenseDeclared"])
-        report_ptr.write("PackageCopyrightText: NOASSERTION\n")
-
-        report_ptr.write("\n")
-        report_ptr.write("##------------------------------\n")
-        report_ptr.write("##  File Information\n")
-        report_ptr.write("##------------------------------\n")
-        report_ptr.write("\n")
-
-        for file in packageFiles:
-            report_ptr.write("## ----------------------- File -----------------------\n")
-            report_ptr.write("FileName: %s\n" %file)
-            report_ptr.write("SPDXID: %s\n" %packageFiles[file]["SPDXID"])
-            report_ptr.write("FileType: %s\n" %packageFiles[file]["FileType"])
-            report_ptr.write("FileChecksum: SHA1: %s\n" %packageFiles[file]["fileSHA1"])
-            report_ptr.write("FileChecksum: MD5: %s\n" %packageFiles[file]["fileMD5"])
-            report_ptr.write("LicenseConcluded: %s\n" %packageFiles[file]["LicenseConcluded"])
-
-            for license in packageFiles[file]["LicenseInfoInFile"]:
-                report_ptr.write("LicenseInfoInFile: %s\n" %license)
-            
-            for copyright in packageFiles[file]["FileCopyrightText"]:
-                report_ptr.write("FileCopyrightText: %s\n" %copyright)
-            
+            report_ptr.write("\n")
+            report_ptr.write("##------------------------------\n")
+            report_ptr.write("##  Package Information\n")
+            report_ptr.write("##------------------------------\n")
             report_ptr.write("\n")
 
-        report_ptr.write("##------------------------------\n")
-        report_ptr.write("##  Relationship Information\n")
-        report_ptr.write("##------------------------------\n")
-        report_ptr.write("\n")
+            report_ptr.write("PackageName: %s\n" %packageName)
+            report_ptr.write("SPDXID: %s\n" %(packageData["SPDXID"]))
+            report_ptr.write("PackageDownloadLocation: %s\n" %packageData["PackageDownloadLocation"])
+            report_ptr.write("PackageVerificationCode: %s\n" %packageData["PackageVerificationCode"])
 
-        report_ptr.write("Relationship: %s DESCRIBES %s\n" %("SPDXRef-DOCUMENT", packageData["SPDXID"] ))
-        report_ptr.write("Relationship: %s DESCRIBED_BY  %s\n" %(packageData["SPDXID"], "SPDXRef-DOCUMENT" ))
+            report_ptr.write("PackageLicenseConcluded: %s\n" %packageData["PackageLicenseConcluded"])
 
-        report_ptr.write("\n")
+            for licenseFromFile in packageData["PackageLicenseInfoFromFiles"]:
+                report_ptr.write("PackageLicenseInfoFromFiles: %s\n" %licenseFromFile)
 
-        for file in packageFiles:
-            report_ptr.write("## ----------------------- Relationship -----------------------\n")
-            report_ptr.write("Relationship: %s CONTAINS  %s\n" %(packageData["SPDXID"], packageFiles[file]["SPDXID"] ))
+            report_ptr.write("PackageLicenseDeclared: %s\n" %packageData["PackageLicenseDeclared"])
+            report_ptr.write("PackageCopyrightText: NOASSERTION\n")
+
+            report_ptr.write("\n")
+            report_ptr.write("##------------------------------\n")
+            report_ptr.write("##  File Information\n")
+            report_ptr.write("##------------------------------\n")
             report_ptr.write("\n")
 
-        report_ptr.close() 
-        SPDXReports.append(textFile)
+            for file in packageFiles:
+                report_ptr.write("## ----------------------- File -----------------------\n")
+                report_ptr.write("FileName: %s\n" %file)
+                report_ptr.write("SPDXID: %s\n" %packageFiles[file]["SPDXID"])
+                report_ptr.write("FileType: %s\n" %packageFiles[file]["FileType"])
+                report_ptr.write("FileChecksum: SHA1: %s\n" %packageFiles[file]["fileSHA1"])
+                report_ptr.write("FileChecksum: MD5: %s\n" %packageFiles[file]["fileMD5"])
+                report_ptr.write("LicenseConcluded: %s\n" %packageFiles[file]["LicenseConcluded"])
+
+                for license in packageFiles[file]["LicenseInfoInFile"]:
+                    report_ptr.write("LicenseInfoInFile: %s\n" %license)
+                
+                for copyright in packageFiles[file]["FileCopyrightText"]:
+                    report_ptr.write("FileCopyrightText: %s\n" %copyright)
+                
+                report_ptr.write("\n")
+
+            report_ptr.write("##------------------------------\n")
+            report_ptr.write("##  Relationship Information\n")
+            report_ptr.write("##------------------------------\n")
+            report_ptr.write("\n")
+
+            report_ptr.write("Relationship: %s DESCRIBES %s\n" %("SPDXRef-DOCUMENT", packageData["SPDXID"] ))
+            report_ptr.write("Relationship: %s DESCRIBED_BY  %s\n" %(packageData["SPDXID"], "SPDXRef-DOCUMENT" ))
+
+            report_ptr.write("\n")
+
+            for file in packageFiles:
+                report_ptr.write("## ----------------------- Relationship -----------------------\n")
+                report_ptr.write("Relationship: %s CONTAINS  %s\n" %(packageData["SPDXID"], packageFiles[file]["SPDXID"] ))
+                report_ptr.write("\n")
+
+            report_ptr.close() 
+            SPDXReports.append(textFile)
 
     logger.info("    Exiting generate_spdx_text_report")
 
