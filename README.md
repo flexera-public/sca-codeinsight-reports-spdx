@@ -49,9 +49,9 @@ To unregister this report:
 
 ## Usage
 
-This report is executed directly from within Revenera's Code Insight product. From the project reports tab of each Code Insight project it is possible to *generate* the **SPDX Report** via the Custom Report Framework.
+This report is executed directly from within Revenera's Code Insight product. From the project reports tab of each Code Insight project it is possible to *generate* the **SPDX Report** via the Report Framework.
 
-The Code Insight Custom Report Framework will provide the following to the custom report when initiated:
+The Code Insight Report Framework will provide the following to the report when initiated:
 
 - Project ID
 - Report ID
