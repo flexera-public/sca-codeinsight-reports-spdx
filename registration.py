@@ -109,7 +109,7 @@ def register_custom_reports():
     # Get the current reports so we can ensure the indexes of the new
     # reports have no conflicts
     try:
-        currentReports = CodeInsight_RESTAPIs.reports.get_reports.get_currently_registered_reports(baseURL, adminAuthToken)
+        currentReports = CodeInsight_RESTAPIs.reports.get_reports.get_all_currently_registered_reports(baseURL, adminAuthToken)
     except:
         logger.error("Unable to retrieve currently registered reports")
         print("Unable to retrieve currently registered reports.  See log file for details")
