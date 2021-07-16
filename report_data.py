@@ -146,27 +146,27 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
         spdxPackages[nonInventoryPackageName]["PackageLicenseConcluded"] = "NOASSERTION"
         spdxPackages[nonInventoryPackageName]["PackageLicenseDeclared"] = "NOASSERTION"
     
-
+        ############################################################################
         # Dictionary to contain all of the file specific data
         fileDetails = {}
-        fileDetails["remoteFiles"] = {}
-        fileDetails["localFiles"] = {}
 
         # Collect the copyright/license data per file and create dict based on 
         projectEvidenceDetails = CodeInsight_RESTAPIs.project.get_project_evidence.get_project_evidence(baseURL, projectID, authToken)
 
         # Dictionary to contain all of the file specific data
         fileEvidence = {}
-        fileEvidence["remoteFiles"] = {}
-        fileEvidence["localFiles"] = {}
-        for fileEvidenceDetails in projectEvidenceDetails["data"]:
-            evidence = {}
-            remote = fileEvidenceDetails["remote"]
-            filePath = fileEvidenceDetails["filePath"]
-            evidence["copyrightEvidienceFound"] = fileEvidenceDetails["copyRightMatches"]
 
-            # The license evidience is not in SPDX form so consolidate and map
+        for fileEvidenceDetails in projectEvidenceDetails["data"]:
+            remoteFile = bool(fileEvidenceDetails["remote"])
+            scannedFileId = fileEvidenceDetails["scannedFileId"]
+            filePath = fileEvidenceDetails["filePath"]
+            copyrightEvidenceFound= fileEvidenceDetails["copyRightMatches"]
             licenseEvidenceFound = list(set(fileEvidenceDetails["licenseMatches"]))
+            
+            # Create a unique identifier based on fileID and scan location
+            uniqueFileID = str(scannedFileId) + ("-r" if remoteFile else "-s")
+     
+            # The license evidience is not in SPDX form so consolidate and map       
             for index, licenseEvidence in enumerate(licenseEvidenceFound):
                 if licenseEvidence in SPDX_license_mappings.LICENSEMAPPINGS:
                     licenseEvidenceFound[index] = SPDX_license_mappings.LICENSEMAPPINGS[licenseEvidence]
@@ -174,30 +174,49 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                     logger.info("Unmapped License to SPDX ID in file evidence: %s" %licenseEvidence)
 
                 
-
+            # If there is no evidience add NONE
             if len(licenseEvidenceFound) == 0:
-                evidence["licenseEvidenceFound"] = ["NONE"]
+                licenseEvidenceFound = ["NONE"]
             else:
-                evidence["licenseEvidenceFound"] = licenseEvidenceFound  
+                licenseEvidenceFound = licenseEvidenceFound  
 
-            if remote:
-                fileEvidence["localFiles"][filePath] = evidence
-            else: 
-                fileEvidence["remoteFiles"][filePath] = evidence
+            if len(copyrightEvidenceFound) == 0:
+                copyrightEvidenceFound = ["NONE"]
+            else:
+                copyrightEvidenceFound = copyrightEvidenceFound  
 
+            fileEvidence[uniqueFileID] = {}
+            fileEvidence[uniqueFileID]["Filename"]= filePath
+            fileEvidence[uniqueFileID]["copyrightEvidenceFound"]= copyrightEvidenceFound
+            fileEvidence[uniqueFileID]["licenseEvidenceFound"]= licenseEvidenceFound     
 
         # Collect a list of the scanned files
         scannedFiles = CodeInsight_RESTAPIs.project.get_scanned_files.get_scanned_files_details(baseURL, projectID, authToken)
 
+        # A dict to allow going from file path to unique ID (could be mulitple?)
+        filePathToID = {}
         # Cycle through each scanned file
         for scannedFile in scannedFiles:
             scannedFileDetails = {}
             remoteFile = scannedFile["remote"]
+            scannedFileId = scannedFile["fileId"]
             FileName = scannedFile["filePath"]  
             inInventory = scannedFile["inInventory"]  
 
+            # Create a unique identifier based on fileID and scan location
+            if remoteFile == "false":
+                uniqueFileID = str(scannedFileId) + "-s"
+            else:
+                uniqueFileID = str(scannedFileId) + "-r"
+
+            # Add the ID to a list or create the list in the first place
+            try:
+               filePathToID[FileName].append(uniqueFileID)
+            except:
+                filePathToID[FileName] = [uniqueFileID]      
+
             # Check to see if the file was associated to an WIP or License only item
-            # If it is set the inVenetory flag to false
+            # If it is set the inInvenetory flag to false
             if FileName in filesNotInComponents:
                 inInventory = "false"
 
@@ -224,58 +243,45 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                     scannedFileDetails["FileType"] = "OTHER"
             
             scannedFileDetails["LicenseConcluded"] = "NOASSERTION"
-
-            scannedFileDetails["fileId"] = scannedFile["fileId"]
+            scannedFileDetails["FileName"] = FileName
+            scannedFileDetails["fileId"] = uniqueFileID
             scannedFileDetails["fileMD5"] = scannedFile["fileMD5"]
-            scannedFileDetails["fileSHA1"] = (hashlib.sha1(scannedFile["fileMD5"].encode('utf-8'))).hexdigest()
+            scannedFileDetails["fileSHA1"] = scannedFile["fileMD5"]
             
-            scannedFileDetails["SPDXID"] = "SPDXRef-File-" + ("remote" if remote else "server") + "-" + scannedFile["fileId"]
+            scannedFileDetails["SPDXID"] = "SPDXRef-File-" + uniqueFileID
 
             fileContainsEvidence = scannedFile["containsEvidence"]   
 
             if fileContainsEvidence:
                 scannedFileDetails["LicenseInfoInFile"] = []
 
-                if remoteFile:
-                    if fileEvidence["remoteFiles"][FileName]["copyrightEvidienceFound"]:
-                        scannedFileDetails["FileCopyrightText"] = fileEvidence["remoteFiles"][FileName]["copyrightEvidienceFound"]
-                    else:
-                        scannedFileDetails["FileCopyrightText"] = ["NOASSERTION"]
-
-                    if fileEvidence["remoteFiles"][FileName]["licenseEvidenceFound"]:
-                        scannedFileDetails["LicenseInfoInFile"] = fileEvidence["remoteFiles"][FileName]["licenseEvidenceFound"]
-
-
+                if fileEvidence[uniqueFileID]["copyrightEvidenceFound"]:
+                    scannedFileDetails["FileCopyrightText"] = fileEvidence[uniqueFileID]["copyrightEvidenceFound"]
                 else:
-                    if fileEvidence["localFiles"][FileName]["copyrightEvidienceFound"]:
-                        scannedFileDetails["FileCopyrightText"] = fileEvidence["localFiles"][FileName]["copyrightEvidienceFound"]
-                    else:
-                        scannedFileDetails["FileCopyrightText"] = ["NOASSERTION"]
-                    if fileEvidence["localFiles"][FileName]["licenseEvidenceFound"]:
-                        scannedFileDetails["LicenseInfoInFile"] = fileEvidence["localFiles"][FileName]["licenseEvidenceFound"]
+                    scannedFileDetails["FileCopyrightText"] = ["NOASSERTION"]
 
+                if fileEvidence[uniqueFileID]["licenseEvidenceFound"]:
+                    scannedFileDetails["LicenseInfoInFile"] = fileEvidence[uniqueFileID]["licenseEvidenceFound"]
 
-            if remoteFile:
-                fileDetails["localFiles"][FileName] = scannedFileDetails
-            else: 
-                fileDetails["remoteFiles"][FileName] = scannedFileDetails
-
+            fileDetails[uniqueFileID] = scannedFileDetails
 
         # Merge the results to map each package (inventory item) with the assocaited files
         for package in spdxPackages:
         
-            spdxPackages[package]["files"] = {}   
+            spdxPackages[package]["files"] = {}  
 
             for file in spdxPackages[package]["containedFiles"]:
-                if file in fileDetails["localFiles"]:
-                    spdxPackages[package]["files"][file] =  fileDetails["localFiles"][file]
-                elif file in fileDetails["remoteFiles"]:
-                    spdxPackages[package]["files"][file] =  fileDetails["remoteFiles"][file]
-                else:
-                    logger.error("Not possible since every file in an inventory item is in the file details dict")
+
+                # Do we have data for this file?
+                fileIDList = filePathToID[file]
+
+                # It is be possible to have multiple files with the same path
+                for fileID in fileIDList:
+                    spdxPackages[package]["files"][file] = fileDetails[fileID]
 
             fileHashes = []
             fileLicenses = []
+
             for file in spdxPackages[package]["files"]:
                 # Create a list of SHA1 values to hash
                 fileHashes.append(spdxPackages[package]["files"][file]["fileSHA1"])
