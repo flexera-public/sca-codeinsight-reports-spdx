@@ -254,7 +254,7 @@ def generate_spdx_text_report(reportData):
 
             for file in packageFiles:
                 report_ptr.write("## ----------------------- Relationship -----------------------\n")
-                report_ptr.write("Relationship: %s CONTAINS  %s\n" %(packageData["SPDXID"], packageFiles[file]["SPDXID"] ))
+                report_ptr.write("Relationship: %s CONTAINS %s\n" %(packageData["SPDXID"], packageFiles[file]["SPDXID"] ))
                 report_ptr.write("\n")
 
             report_ptr.close() 
