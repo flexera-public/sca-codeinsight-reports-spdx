@@ -272,6 +272,11 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                     scannedFileDetails["LicenseInfoInFile"] = fileEvidence[uniqueFileID]["licenseEvidenceFound"]
 
             fileDetails[uniqueFileID] = scannedFileDetails
+        # Are there any files not asscoaited to an inventory item?
+        if not len(spdxPackages[nonInventoryPackageName]["containedFiles"]):
+            logger.debug("All files are asscoiated to at least one inventory item")
+            spdxPackages.pop(nonInventoryPackageName)
+
 
         # Merge the results to map each package (inventory item) with the assocaited files
         for package in spdxPackages:
