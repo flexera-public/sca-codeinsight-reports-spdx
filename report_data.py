@@ -191,7 +191,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
             fileEvidence[uniqueFileID]["licenseEvidenceFound"]= licenseEvidenceFound     
 
         # Collect a list of the scanned files
-        scannedFiles = CodeInsight_RESTAPIs.project.get_scanned_files.get_scanned_files_details(baseURL, projectID, authToken)
+        scannedFiles = CodeInsight_RESTAPIs.project.get_scanned_files.get_scanned_files_details_with_MD5_and_SHA1(baseURL, projectID, authToken)
 
         # A dict to allow going from file path to unique ID (could be mulitple?)
         filePathToID = {}
@@ -246,7 +246,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
             scannedFileDetails["FileName"] = FileName
             scannedFileDetails["fileId"] = uniqueFileID
             scannedFileDetails["fileMD5"] = scannedFile["fileMD5"]
-            scannedFileDetails["fileSHA1"] = scannedFile["fileMD5"]
+            scannedFileDetails["fileSHA1"] = scannedFile["fileSHA1"]
             
             scannedFileDetails["SPDXID"] = "SPDXRef-File-" + uniqueFileID
 
