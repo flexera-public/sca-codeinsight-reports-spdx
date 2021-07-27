@@ -247,6 +247,14 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
             scannedFileDetails["fileId"] = uniqueFileID
             scannedFileDetails["fileMD5"] = scannedFile["fileMD5"]
             scannedFileDetails["fileSHA1"] = scannedFile["fileSHA1"]
+
+            # SPDX requires a SHA1 value so if the SHA1 option is not enabled 
+            # in the database exit out and create an error report with details.
+            if not scannedFileDetails["fileSHA1"]:
+                logger.debug("No SHA1 value for %s" %uniqueFileID)
+                reportData = {}
+                reportData["errorMsg"] = ["SHA1 Error:  An encountered file did not have a corresponding SHA1 value."]
+                return reportData
             
             scannedFileDetails["SPDXID"] = "SPDXRef-File-" + uniqueFileID
 
