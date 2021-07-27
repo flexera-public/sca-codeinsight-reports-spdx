@@ -17,7 +17,6 @@ from datetime import datetime
 import _version
 import report_data
 import report_artifacts
-import report_errors
 import CodeInsight_RESTAPIs.project.upload_reports
 
 logfileName = os.path.dirname(os.path.realpath(__file__)) + "/_spdx_report.log"
@@ -73,15 +72,13 @@ def main():
 
 	reportData = report_data.gather_data_for_report(baseURL, projectID, authToken, reportName, reportVersion)
 	print("    Report data has been collected")
-	reportData["reportName"] = reportName
+	
 	reportData["fileNameTimeStamp"] = fileNameTimeStamp
 
-	if "errorMsg" in reportData.keys():
-		reports = report_errors.create_error_report(reportData)
-		print("    Error report artifacts have been created")
-	else:
-		reports = report_artifacts.create_report_artifacts(reportData)
-		print("    Report artifacts have been created")
+	reports = report_artifacts.create_report_artifacts(reportData) 
+	print("    Report artifacts have been created")
+
+	projectName = reportData["projectName"].replace(" - ", "-").replace(" ", "_")
 
 	uploadZipfile = create_report_zipfile(reports, reportName, projectID, fileNameTimeStamp)
 	print("    Upload zip file creation completed")
