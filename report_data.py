@@ -105,7 +105,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                 
                 # Contains the deatils for the package/inventory item
                 spdxPackages[packageName] ={}
-                spdxPackages[packageName]["reportName"] = projectName + "-" + packageName.replace(" ", "_") + ".spdx"
+                spdxPackages[packageName]["reportName"] = str(projectID) + "-" + packageName.replace(" ", "_") + ".spdx"
                 spdxPackages[packageName]["packageName"] = packageName
                 spdxPackages[packageName]["SPDXID"] = "SPDXRef-Pkg-" + packageName
                 spdxPackages[packageName]["PackageFileName"] = packageName
@@ -135,7 +135,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
         # Create a package to hold files not associated to an inventory item directly
         nonInventoryPackageName = "OtherFiles"
         spdxPackages[nonInventoryPackageName] ={}
-        spdxPackages[nonInventoryPackageName]["reportName"] = projectName + "-" + nonInventoryPackageName + ".spdx"
+        spdxPackages[nonInventoryPackageName]["reportName"] = str(projectID)  + "-" + nonInventoryPackageName + ".spdx"
         spdxPackages[nonInventoryPackageName]["packageName"] = nonInventoryPackageName
         spdxPackages[nonInventoryPackageName]["containedFiles"] = []
         spdxPackages[nonInventoryPackageName]["SPDXID"] = "SPDXRef-Pkg-" + nonInventoryPackageName
@@ -303,6 +303,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
 
     reportData = {}
     reportData["reportName"] = reportName
+    reportData["projectID"] = projectID
     reportData["reportVersion"] = reportVersion
     reportData["projectName"] = projectName
     reportData["SPDXData"] = SPDXData

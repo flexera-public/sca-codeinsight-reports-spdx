@@ -41,6 +41,8 @@ def generate_spdx_html_summary_report(reportData):
 
     reportName = reportData["reportName"]
     projectName = reportData["projectName"].replace(" - ", "-").replace(" ", "_")
+    projectID = reportData["projectID"] 
+    fileNameTimeStamp = reportData["fileNameTimeStamp"] 
     SPDXData = reportData["SPDXData"]
 
     scriptDirectory = os.path.dirname(os.path.realpath(__file__))
@@ -56,7 +58,7 @@ def generate_spdx_html_summary_report(reportData):
     # Grab the current date/time for report date stamp
     now = datetime.now().strftime("%B %d, %Y at %H:%M:%S")
 
-    htmlFile = projectName + "-" + reportName.replace(" ", "_") + ".html"
+    htmlFile = reportName.replace(" ", "_") + "-" + str(projectID)  + "-" + fileNameTimeStamp + ".html"
     logger.debug("htmlFile: %s" %htmlFile)
     
     #---------------------------------------------------------------------------------------------------
