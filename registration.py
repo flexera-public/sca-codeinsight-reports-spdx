@@ -44,6 +44,15 @@ if adminAuthToken == "UPDATEME" or baseURL == "UPDATEME":
 reportName = "SPDX Report"  # What is the name to be shown within Code Insight?
 enableProjectPickerValue = "false"   # true if a second project can be used within this report
 reportOptions = []
+reportOption = {}
+reportOption["name"] = "includeChildProjects"
+reportOption["label"] = "Include child project data (True/False)"
+reportOption["description"] = "Should the report include data from child projects? <b>(True/False)</b>"
+reportOption["type"] = "string"
+reportOption["defaultValue"] = "True"
+reportOption["required"] = "true"
+reportOption["order"] = "1"
+reportOptions.append(reportOption)
 
 #####################################################################################################
 # Get the directory name in order to register the script

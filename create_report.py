@@ -13,10 +13,12 @@ import argparse
 import zipfile
 import os
 from datetime import datetime
+import json
 
 import _version
 import report_data
 import report_artifacts
+import report_errors
 import CodeInsight_RESTAPIs.project.upload_reports
 
 logfileName = os.path.dirname(os.path.realpath(__file__)) + "/_spdx_report.log"
@@ -41,9 +43,7 @@ parser.add_argument('-pid', "--projectID", help="Project ID")
 parser.add_argument("-rid", "--reportID", help="Report ID")
 parser.add_argument("-authToken", "--authToken", help="Code Insight Authorization Token")
 parser.add_argument("-baseURL", "--baseURL", help="Code Insight Core Server Protocol/Domain Name/Port.  i.e. http://localhost:8888 or https://sca.codeinsight.com:8443")
-
-
-
+parser.add_argument("-reportOpts", "--reportOptions", help="Options for report content")
 
 #----------------------------------------------------------------------#
 def main():
@@ -60,25 +60,41 @@ def main():
 	reportID = args.reportID
 	authToken = args.authToken
 	baseURL = args.baseURL
+	reportOptions = args.reportOptions
+
+	fileNameTimeStamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+
+	# Based on how the shell pass the arguemnts clean up the options if on a linux system:w
+	if sys.platform.startswith('linux'):
+		reportOptions = reportOptions.replace('""', '"')[1:-1]
+	
+	reportOptions = json.loads(reportOptions)
+	reportOptions = verifyOptions(reportOptions) 
 
 	logger.debug("Custom Report Provided Arguments:")	
 	logger.debug("    projectID:  %s" %projectID)	
 	logger.debug("    reportID:   %s" %reportID)	
 	logger.debug("    baseURL:  %s" %baseURL)	
-
-	fileNameTimeStamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+	logger.debug("    reportOptions:  %s" %reportOptions)		
 
 	# Collect the data for the report
-
-	reportData = report_data.gather_data_for_report(baseURL, projectID, authToken, reportName, reportVersion)
-	print("    Report data has been collected")
 	
-	reportData["fileNameTimeStamp"] = fileNameTimeStamp
+	if "errorMsg" in reportOptions.keys():
+		reportOptions["reportName"] = reportName
+		projectName = "Error"
+		reports = report_errors.create_error_report(reportOptions)
+		print("    *** ERROR  ***  Error found validating report options")
+	else:
+		reportData = report_data.gather_data_for_report(baseURL, projectID, authToken, reportName, reportVersion, reportOptions)
+		print("    Report data has been collected")
+		reportData["fileNameTimeStamp"] = fileNameTimeStamp
 
-	reports = report_artifacts.create_report_artifacts(reportData) 
-	print("    Report artifacts have been created")
-
-	projectName = reportData["projectName"].replace(" - ", "-").replace(" ", "_")
+		if "errorMsg" in reportData.keys():
+			reports = report_errors.create_error_report(reportData)
+			print("    Error report artifacts have been created")
+		else:
+			reports = report_artifacts.create_report_artifacts(reportData)
+			print("    Report artifacts have been created")
 
 	uploadZipfile = create_report_zipfile(reports, reportName, projectID, fileNameTimeStamp)
 	print("    Upload zip file creation completed")
@@ -95,6 +111,31 @@ def main():
 
 	logger.info("Completed creating %s" %reportName)
 	print("Completed creating %s" %reportName)
+
+
+#----------------------------------------------------------------------# 
+def verifyOptions(reportOptions):
+	'''
+	Expected Options for report:
+		includeChildProjects - True/False
+	'''
+	reportOptions["errorMsg"] = []
+	trueOptions = ["true", "t", "yes", "y"]
+	falseOptions = ["false", "f", "no", "n"]
+
+	includeChildProjects = reportOptions["includeChildProjects"]
+
+	if includeChildProjects.lower() in trueOptions:
+		reportOptions["includeChildProjects"] = "true"
+	elif includeChildProjects.lower() in falseOptions:
+		reportOptions["includeChildProjects"] = "false"
+	else:
+		reportOptions["errorMsg"].append("Invalid option for including child projects: <b>%s</b>.  Valid options are <b>True/False</b>" %includeChildProjects)
+
+	if not reportOptions["errorMsg"]:
+		reportOptions.pop('errorMsg', None)
+
+	return reportOptions
 
 
 #---------------------------------------------------------------------#

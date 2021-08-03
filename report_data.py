@@ -24,11 +24,11 @@ import filetype_mappings
 logger = logging.getLogger(__name__)
 
 #-------------------------------------------------------------------#
-def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVersion):
+def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVersion, reportOptions):
     logger.info("Entering gather_data_for_report")
 
-    # Replace with report option
-    includeChildProjects  = "true"
+    # Parse report options
+    includeChildProjects = reportOptions["includeChildProjects"]  # True/False
 
     SPDXVersion = "SPDX-2.2"
     DataLicense = "CC0-1.0"
