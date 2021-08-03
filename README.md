@@ -11,6 +11,13 @@ The sca-codeinsight-reports-spdx repository is a report for Revenera's Code Insi
 |Repository Tag | Minimum Code Insight Release  |
 |--|--|
 |1.0.x |2021R2  |
+|1.1.x |2021R3  |
+
+**Code Insight SHA1 Value Database Setting**
+
+To enable the SHA1 calculations for files, the scan.digest.sha1.enabled option with in the PAS_GLOBAL_PROPERTIES table must be set to true
+
+    UPDATE PAS_GLOBAL_PROPERTIES SET VALUE_ = "true" WHERE KEY_ = "scan.digest.sha1.enabled";
 
 
 **Submodule Repositories**
@@ -28,7 +35,7 @@ This repository requires the python requests module to interact with the Code In
 
 ## Required Configuration
 
-There is one locations that require updates to provide the report scripts details about the host system.
+There is one location that require updates to provide the report scripts details about the host system.
 
 For registration purposes update the **baseURL** and **adminAuthToken** values within [registration.py](registration.py) to reflect the correct values to allow the report itself to be registered on the Code Insight server.
 
