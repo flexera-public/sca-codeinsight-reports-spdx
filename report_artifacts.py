@@ -40,7 +40,7 @@ def generate_spdx_html_summary_report(reportData):
     logger.info("Entering generate_spdx_html_summary_report")
 
     reportName = reportData["reportName"]
-    projectName = reportData["projectName"].replace(" - ", "-").replace(" ", "_")
+    projectName = reportData["projectName"]
     projectID = reportData["projectID"] 
     fileNameTimeStamp = reportData["fileNameTimeStamp"] 
     SPDXData = reportData["SPDXData"]
@@ -96,7 +96,6 @@ def generate_spdx_html_summary_report(reportData):
         logger.error("Unable to open %s" %cssFile)
         print("Unable to open %s" %cssFile)
 
-
     html_ptr.write("        </style>\n")  
 
     html_ptr.write("    	<link rel='icon' type='image/png' href='data:image/png;base64, {}'>\n".format(encodedfaviconImage.decode('utf-8')))
@@ -124,20 +123,26 @@ def generate_spdx_html_summary_report(reportData):
     html_ptr.write("<!-- BEGIN BODY -->\n") 
 
     html_ptr.write("<H5>Individual SPDX report files for project <b>%s</b>, may be found within the downloadable zip file from the project reports tab.</H5><p>\n" %projectName)
-
-    html_ptr.write("<ul class='list-group list-group-flush'>\n")
+    
     for projectName in SPDXData["projectData"]:
-        html_ptr.write("<li class='list-group-item'>Project: <b>%s</b></li>\n" %projectName)
-        
         html_ptr.write("<ul class='list-group list-group-flush'>\n")
+        
+        if SPDXData["projectData"][projectName]["invalidSHA1"]:
+            html_ptr.write("    <li class='list-group-item'>Project: <b>%s</b> - <span style='color:Red;'>SHA1 values unavailable for some or all associated files.  See README.md for details.</span>" %projectName)
+        else:
+             html_ptr.write("    <li class='list-group-item'>Project: <b>%s</b>" %projectName)
+        
+        html_ptr.write("        <ul class='list-group list-group-flush'>\n")
 
         for package in SPDXData["projectData"][projectName]["spdxPackages"]:
             spdxReportName = SPDXData["projectData"][projectName]["spdxPackages"][package]["reportName"]
-            html_ptr.write("<li class='list-group-item'>Generated SPDX report: <b>%s</b></li>\n" %spdxReportName)
+            html_ptr.write("        <li class='list-group-item'>Generated SPDX report: <b>%s</b></li>\n" %spdxReportName)
 
+        html_ptr.write("    </ul>\n")
+      
+        
         html_ptr.write("</ul>\n")
-        html_ptr.write("<hr>\n")  # Add color?
-    html_ptr.write("</ul>\n")
+        html_ptr.write("<hr class='small'>")
 
     html_ptr.write("<!-- END BODY -->\n")  
     #---------------------------------------------------------------------------------------------------
@@ -234,7 +239,7 @@ def generate_spdx_text_report(reportData):
                 report_ptr.write("FileType: %s\n" %packageFiles[file]["FileType"])
                 report_ptr.write("FileChecksum: SHA1: %s\n" %packageFiles[file]["fileSHA1"])
                 report_ptr.write("FileChecksum: MD5: %s\n" %packageFiles[file]["fileMD5"])
-                report_ptr.write("LicenseConcluded: %s\n" %packageFiles[file]["LicenseConcluded"])
+                report_ptr.write("LicenseConcluded: %s\n" %packageFiles[file]["FileLicenseConcluded"])
 
                 for license in packageFiles[file]["LicenseInfoInFile"]:
                     report_ptr.write("LicenseInfoInFile: %s\n" %license)
