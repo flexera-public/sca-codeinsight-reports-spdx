@@ -56,12 +56,11 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
     else:
         logger.debug("Child hierarchy disabled")
 
-
     #  Gather the details for each project and summerize the data
     for project in projectList:
 
         projectID = project["projectID"]
-        projectName = project["projectName"].replace(" - ", "-").replace(" ", "_")
+        projectName = project["projectName"]
 
         projectInventory = CodeInsight_RESTAPIs.project.get_project_inventory.get_project_inventory_details_without_vulnerabilities(baseURL, projectID, authToken)
         inventoryItems = projectInventory["inventoryItems"]
@@ -87,22 +86,6 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                 logger.info("Processing %s" %(packageName))
                 filesInInventory = inventoryItem["filePaths"]
 
-                PackageLicenseDeclared = []
-                try:
-                    possibleLicenses = inventoryItem["possibleLicenses"]
-                    for license in possibleLicenses:
-                        
-                        if license["licenseSPDXIdentifier"] in SPDX_license_mappings.LICENSEMAPPINGS:
-                            PackageLicenseDeclared.append(SPDX_license_mappings.LICENSEMAPPINGS[license["licenseSPDXIdentifier"]])
-                        else:
-                            PackageLicenseDeclared.append(license["licenseSPDXIdentifier"]) 
-                        
-                except:
-
-                    PackageLicenseDeclared.append(["NOASSERTION"])     
-                
-                selectedLicenseSPDXIdentifier = inventoryItem["selectedLicenseSPDXIdentifier"]
-                
                 # Contains the deatils for the package/inventory item
                 spdxPackages[packageName] ={}
                 spdxPackages[packageName]["reportName"] = str(projectID) + "-" + packageName.replace(" ", "_") + ".spdx"
@@ -112,20 +95,53 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                 spdxPackages[packageName]["DocumentName"] =  projectName + "-" + packageName.replace(" ", "_")
                 spdxPackages[packageName]["DocumentNamespace"] = DocumentNamespaceBase + "/" + projectName + "-" + packageName.replace(" ", "_") + "-" + str(uuid.uuid1())
                 spdxPackages[packageName]["PackageDownloadLocation"] = inventoryItem["componentUrl"]
-                
-                if len(PackageLicenseDeclared) == 0:
-                    spdxPackages[packageName]["PackageLicenseConcluded"] = "NOASSERTION"
-                elif len(PackageLicenseDeclared) == 1:
-                    spdxPackages[packageName]["PackageLicenseConcluded"] = PackageLicenseDeclared[0]
-                else:
-                    spdxPackages[packageName]["PackageLicenseConcluded"] = "(" + ' OR '.join(sorted(PackageLicenseDeclared)) + ")"
-            
-
-                spdxPackages[packageName]["PackageLicenseDeclared"] = selectedLicenseSPDXIdentifier
                 spdxPackages[packageName]["containedFiles"] = filesInInventory
 
-                
+                ##########################################
+                # Manage Concluded licenes
+                logger.info("    Manage Concluded/Possible Licenses")
+                PackageLicenseConcluded = []
+                try:
+                    possibleLicenses = inventoryItem["possibleLicenses"]
+                    for license in possibleLicenses:
+                        possibleLicenseSPDXIdentifier = license["licenseSPDXIdentifier"]
+                        if possibleLicenseSPDXIdentifier in SPDX_license_mappings.LICENSEMAPPINGS:
+                            logger.info("        \"%s\" maps to SPDX ID \"%s\"" %(possibleLicenseSPDXIdentifier, SPDX_license_mappings.LICENSEMAPPINGS[possibleLicenseSPDXIdentifier]) )
+                            PackageLicenseConcluded.append(SPDX_license_mappings.LICENSEMAPPINGS[license["licenseSPDXIdentifier"]])
+                            
+                        else:
+                            # There was not a valid SPDX ID 
+                            logger.warning("        \"%s\" is not a valid SPDX identifier. - Using NOASSERTION." %(possibleLicenseSPDXIdentifier))
+                            PackageLicenseConcluded.append("NOASSERTION")           
+                except:
+                    PackageLicenseConcluded.append(["NOASSERTION"])    
 
+                if len(PackageLicenseConcluded) == 0:
+                    PackageLicenseConcluded = "NOASSERTION"
+                elif len(PackageLicenseConcluded) == 1:
+                    PackageLicenseConcluded = PackageLicenseConcluded[0]
+                else:
+                    PackageLicenseConcluded = "(" + ' OR '.join(sorted(PackageLicenseConcluded)) + ")"
+
+
+                spdxPackages[packageName]["PackageLicenseConcluded"] = PackageLicenseConcluded
+
+                ##########################################
+                # Manage Declared license
+                logger.info("    Manage Declared License")
+                selectedLicenseSPDXIdentifier = inventoryItem["selectedLicenseSPDXIdentifier"]
+
+                # Need to make sure that there is a valid SPDX license mapping
+                if selectedLicenseSPDXIdentifier in SPDX_license_mappings.LICENSEMAPPINGS:
+                    logger.info("        \"%s\" maps to SPDX ID: \"%s\"" %(selectedLicenseSPDXIdentifier, SPDX_license_mappings.LICENSEMAPPINGS[selectedLicenseSPDXIdentifier] ))
+                    PackageLicenseDeclared = (SPDX_license_mappings.LICENSEMAPPINGS[selectedLicenseSPDXIdentifier])
+                else:
+                    # There was not a valid SPDX license name returned
+                    logger.warning("        \"%s\" is not a valid SPDX identifier. - Using NOASSERTION." %(selectedLicenseSPDXIdentifier))
+                    PackageLicenseDeclared = "NOASSERTION"
+                       
+                spdxPackages[packageName]["PackageLicenseDeclared"] = PackageLicenseDeclared
+                
             else:
                 # This is a WIP or License only item so take the files assocated here and include them in
                 # in the files without inventory bucket
@@ -166,24 +182,34 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
             # Create a unique identifier based on fileID and scan location
             uniqueFileID = str(scannedFileId) + ("-r" if remoteFile else "-s")
      
-            # The license evidience is not in SPDX form so consolidate and map       
-            for index, licenseEvidence in enumerate(licenseEvidenceFound):
-                if licenseEvidence in SPDX_license_mappings.LICENSEMAPPINGS:
-                    licenseEvidenceFound[index] = SPDX_license_mappings.LICENSEMAPPINGS[licenseEvidence]
-                else:
-                    logger.info("Unmapped License to SPDX ID in file evidence: %s" %licenseEvidence)
+            logger.info("File level evidence for %s - %s" %(uniqueFileID, filePath))
 
-                
-            # If there is no evidience add NONE
-            if len(licenseEvidenceFound) == 0:
-                licenseEvidenceFound = ["NONE"]
-            else:
+            ##########################################
+            # Manage File Level licenses
+            if licenseEvidenceFound:
+                logger.info("    License evidience discovered")
+                # The license evidience is not in SPDX form so consolidate and map       
+                for index, licenseEvidence in enumerate(licenseEvidenceFound):
+                    if licenseEvidence in SPDX_license_mappings.LICENSEMAPPINGS:
+                        licenseEvidenceFound[index] = SPDX_license_mappings.LICENSEMAPPINGS[licenseEvidence]
+                        logger.info("        \"%s\" maps to SPDX ID: \"%s\"" %(licenseEvidence, SPDX_license_mappings.LICENSEMAPPINGS[licenseEvidence] ))
+                    else:
+                        logger.warning("        File contains '%s' which is not a valid SPDX ID. - Using NOASSERTION." %(licenseEvidence))
+
+                        licenseEvidenceFound[index]  = "NOASSERTION"
+            
                 licenseEvidenceFound = licenseEvidenceFound  
-
-            if len(copyrightEvidenceFound) == 0:
-                copyrightEvidenceFound = ["NONE"]
             else:
-                copyrightEvidenceFound = copyrightEvidenceFound  
+                logger.info("    No license evidience discovered")
+                licenseEvidenceFound = ["NONE"]
+
+            ##########################################
+            # Manage File Level Copyrights
+            if copyrightEvidenceFound:
+                logger.info("    Copyright evidience discovered")
+            else:
+                logger.info("    No copyright evidience discovered")
+                copyrightEvidenceFound = ["NONE"]
 
             fileEvidence[uniqueFileID] = {}
             fileEvidence[uniqueFileID]["Filename"]= filePath
@@ -196,6 +222,8 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
         # A dict to allow going from file path to unique ID (could be mulitple?)
         filePathToID = {}
         # Cycle through each scanned file
+
+        invalidSHA1 = False # Default value
         for scannedFile in scannedFiles:
             scannedFileDetails = {}
             remoteFile = scannedFile["remote"]
@@ -242,11 +270,17 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                     logger.info("Unmapped file type extension for file: %s" %FileName)
                     scannedFileDetails["FileType"] = "OTHER"
             
-            scannedFileDetails["LicenseConcluded"] = "NOASSERTION"
+            scannedFileDetails["FileLicenseConcluded"] = "NOASSERTION"
             scannedFileDetails["FileName"] = FileName
             scannedFileDetails["fileId"] = uniqueFileID
             scannedFileDetails["fileMD5"] = scannedFile["fileMD5"]
-            scannedFileDetails["fileSHA1"] = scannedFile["fileSHA1"]
+
+            if scannedFile["fileSHA1"]:
+                scannedFileDetails["fileSHA1"] = scannedFile["fileSHA1"]
+            else:
+                logger.error("%s does not have a SHA1 calculation" %FileName)
+                scannedFileDetails["fileSHA1"] = hashlib.sha1(scannedFile["fileMD5"].encode('utf-8')).hexdigest()
+                invalidSHA1 = True # There was no SHA1 for at least one file
             
             scannedFileDetails["SPDXID"] = "SPDXRef-File-" + uniqueFileID
 
@@ -268,7 +302,6 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
         if not len(spdxPackages[nonInventoryPackageName]["containedFiles"]):
             logger.debug("All files are asscoiated to at least one inventory item")
             spdxPackages.pop(nonInventoryPackageName)
-
 
         # Merge the results to map each package (inventory item) with the assocaited files
         for package in spdxPackages:
@@ -293,12 +326,15 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                 # Collect licesne info from files
                 fileLicenses.extend(spdxPackages[package]["files"][file]["LicenseInfoInFile"])
 
-            # Create a hash of the file hashes for PackageVerificationCode
+            # Create a hash of the file hashes for PackageVerificationCode 
             stringHash = ''.join(sorted(fileHashes))
             spdxPackages[package]["PackageVerificationCode"] = (hashlib.sha1(stringHash.encode('utf-8'))).hexdigest()
             spdxPackages[package]["PackageLicenseInfoFromFiles"] = set(fileLicenses)
 
         projectData[projectName]["spdxPackages"] = spdxPackages
+
+        # Was there any files that did not contains SHA1 details?
+        projectData[projectName]["invalidSHA1"] = invalidSHA1
 
     SPDXData = {}
     SPDXData["SPDXVersion"] = SPDXVersion
@@ -310,7 +346,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
     reportData["reportName"] = reportName
     reportData["projectID"] = projectID
     reportData["reportVersion"] = reportVersion
-    reportData["projectName"] = projectName
+    reportData["projectName"] =  projectHierarchy["name"]
     reportData["SPDXData"] = SPDXData
 
 
