@@ -10,7 +10,6 @@ File : report_artifacts.py
 
 import logging
 from datetime import datetime
-import os
 import base64
 
 logger = logging.getLogger(__name__)
@@ -22,148 +21,55 @@ def create_report_artifacts(reportData):
     # Dict to hold the complete list of reports
     reports = {}
 
-    summaryFile = generate_spdx_html_summary_report(reportData)
+    # Crete a report for each project within the hierarchy
+    # and return a list of the files there were created.
+    spdxTextFiles = generate_spdx_text_report(reportData)
 
-    # Create a seperate SPDX report for each inventory item
-    spdtTextFiles = generate_spdx_text_report(reportData)
-    
-    reports["viewable"] = summaryFile
-    reports["allFormats"] = spdtTextFiles
-    reports["allFormats"].append(summaryFile)
+    if len(reportData["projectList"]) == 1:
+        reports["viewable"] = spdxTextFiles[0]
+        reports["allFormats"] = spdxTextFiles
+    else:
+        sumamryFile = generate_spdx_summary_report(reportData, spdxTextFiles)
+        reports["viewable"] = sumamryFile
+        reports["allFormats"] = spdxTextFiles
+        reports["allFormats"].append(sumamryFile)
 
     logger.info("Exiting create_report_artifacts")
     
     return reports 
 
 #--------------------------------------------------------------------------------#
-def generate_spdx_html_summary_report(reportData):
-    logger.info("Entering generate_spdx_html_summary_report")
+
+def generate_spdx_summary_report(reportData, spdxTextFiles):
+    logger.info("Entering generate_spdx_summary_report")
 
     reportName = reportData["reportName"]
-    projectName = reportData["projectName"]
-    projectID = reportData["projectID"] 
-    fileNameTimeStamp = reportData["fileNameTimeStamp"] 
-    SPDXData = reportData["SPDXData"]
+    fileNameTimeStamp = reportData["fileNameTimeStamp"]
 
-    scriptDirectory = os.path.dirname(os.path.realpath(__file__))
-    cssFile =  os.path.join(scriptDirectory, "html-assets/css/revenera_common.css")
-    logoImageFile =  os.path.join(scriptDirectory, "html-assets/images/logo_reversed.svg")
-    iconFile =  os.path.join(scriptDirectory, "html-assets/images/favicon-revenera.ico")
+    summaryTextFile = reportName.replace(" ", "_") + "-summary-" + fileNameTimeStamp + ".txt"
+    logger.debug("summaryTextFile: %s" %summaryTextFile)
 
-    #########################################################
-    #  Encode the image files
-    encodedLogoImage = encodeImage(logoImageFile)
-    encodedfaviconImage = encodeImage(iconFile)
-    
-    # Grab the current date/time for report date stamp
-    now = datetime.now().strftime("%B %d, %Y at %H:%M:%S")
-
-    htmlFile = reportName.replace(" ", "_") + "-" + str(projectID)  + "-" + fileNameTimeStamp + ".html"
-    logger.debug("htmlFile: %s" %htmlFile)
-    
-    #---------------------------------------------------------------------------------------------------
-    # Create a simple HTML file to display
-    #---------------------------------------------------------------------------------------------------
     try:
-        html_ptr = open(htmlFile,"w")
+        report_ptr = open(summaryTextFile,"w")
     except:
-        logger.error("Failed to open htmlfile %s:" %htmlFile)
+        logger.error("Failed to open summaryTextFile %s:" %summaryTextFile)
         raise
 
-    html_ptr.write("<html>\n") 
-    html_ptr.write("    <head>\n")
+    report_ptr.write("An SPDX report has been generated for each project within the specified hierachy. These reports can be found within the downloadable zipfile within Code Insight. \n\n")
+    report_ptr.write("Below are the mappings between the project name and the associated SPDX report for the project:\n")
+    report_ptr.write("\n")
 
-    html_ptr.write("        <!-- Required meta tags --> \n")
-    html_ptr.write("        <meta charset='utf-8'>  \n")
-    html_ptr.write("        <meta name='viewport' content='width=device-width, initial-scale=1, shrink-to-fit=no'> \n")
-
-    html_ptr.write(''' 
-        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.1/css/bootstrap.min.css" integrity="sha384-VCmXjywReHh4PwowAiWNagnWcLhlEJLA5buUprzK8rxFgeH0kww/aWY76TfkUoSX" crossorigin="anonymous">
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.1.3/css/bootstrap.css">
-    ''')
+    for spdx in spdxTextFiles:
+        # The name of the SPDX file includes the project ID so we can grab that and map it back to the project name within projectList
+        projectID = spdx.split("-")[-3] # project ID is the 3rd item from the last in the report name
+        projectName = list(filter(lambda project: project['projectID'] == projectID, reportData["projectList"]))[0]["projectName"]
+        report_ptr.write("\t-  SPDX report for project: %s --> %s\n" %(projectName, spdx ))
 
 
-    html_ptr.write("        <style>\n")
+    report_ptr.close() 
+    logger.info("    Exiting generate_spdx_summary_report")
 
-    # Add the contents of the css file to the head block
-    try:
-        f_ptr = open(cssFile)
-        logger.debug("Adding css file details")
-        for line in f_ptr:
-            html_ptr.write("            %s" %line)
-        f_ptr.close()
-    except:
-        logger.error("Unable to open %s" %cssFile)
-        print("Unable to open %s" %cssFile)
-
-    html_ptr.write("        </style>\n")  
-
-    html_ptr.write("    	<link rel='icon' type='image/png' href='data:image/png;base64, {}'>\n".format(encodedfaviconImage.decode('utf-8')))
-    html_ptr.write("        <title>%s</title>\n" %(reportName))
-    html_ptr.write("    </head>\n") 
-
-    html_ptr.write("<body>\n")
-    html_ptr.write("<div class=\"container-fluid\">\n")
-
-    #---------------------------------------------------------------------------------------------------
-    # Report Header
-    #---------------------------------------------------------------------------------------------------
-    html_ptr.write("<!-- BEGIN HEADER -->\n")
-    html_ptr.write("<div class='header'>\n")
-    html_ptr.write("  <div class='logo'>\n")
-    html_ptr.write("    <img src='data:image/svg+xml;base64,{}' style='width: 400px;'>\n".format(encodedLogoImage.decode('utf-8')))
-    html_ptr.write("  </div>\n")
-    html_ptr.write("<div class='report-title'>%s</div>\n" %(reportName))
-    html_ptr.write("</div>\n")
-    html_ptr.write("<!-- END HEADER -->\n")
-
-    #---------------------------------------------------------------------------------------------------
-    # Body of Report
-    #---------------------------------------------------------------------------------------------------
-    html_ptr.write("<!-- BEGIN BODY -->\n") 
-
-    html_ptr.write("<H5>Individual SPDX report files for project <b>%s</b>, may be found within the downloadable zip file from the project reports tab.</H5><p>\n" %projectName)
-    
-    for projectName in SPDXData["projectData"]:
-        html_ptr.write("<ul class='list-group list-group-flush'>\n")
-        
-        if SPDXData["projectData"][projectName]["invalidSHA1"]:
-            html_ptr.write("    <li class='list-group-item'>Project: <b>%s</b> - <span style='color:Red;'>SHA1 values unavailable for some or all associated files.  See README.md for details.</span>" %projectName)
-        else:
-             html_ptr.write("    <li class='list-group-item'>Project: <b>%s</b>" %projectName)
-        
-        html_ptr.write("        <ul class='list-group list-group-flush'>\n")
-
-        for package in SPDXData["projectData"][projectName]["spdxPackages"]:
-            spdxReportName = SPDXData["projectData"][projectName]["spdxPackages"][package]["reportName"]
-            html_ptr.write("        <li class='list-group-item'>Generated SPDX report: <b>%s</b></li>\n" %spdxReportName)
-
-        html_ptr.write("    </ul>\n")
-      
-        
-        html_ptr.write("</ul>\n")
-        html_ptr.write("<hr class='small'>")
-
-    html_ptr.write("<!-- END BODY -->\n")  
-    #---------------------------------------------------------------------------------------------------
-    # Report Footer
-    #---------------------------------------------------------------------------------------------------
-    html_ptr.write("<!-- BEGIN FOOTER -->\n")
-    html_ptr.write("<div class='report-footer'>\n")
-    html_ptr.write("  <div style='float:left'>&copy; %s Flexera</div>\n" %fileNameTimeStamp[0:4])
-    html_ptr.write("  <div style='float:right'>Generated on %s</div>\n" %now)
-    html_ptr.write("</div>\n")
-    html_ptr.write("<!-- END FOOTER -->\n")   
-
-    html_ptr.write("</div>\n")    
-
-    html_ptr.write("</body>\n") 
-    html_ptr.write("</html>\n") 
-    html_ptr.close() 
-
-    logger.info("    Exiting generate_spdx_html_summary_report")
-
-    return htmlFile
+    return summaryTextFile
 
 
 #--------------------------------------------------------------------------------#
@@ -172,47 +78,49 @@ def generate_spdx_text_report(reportData):
     logger.info("Entering generate_spdx_text_report")
     
     reportName = reportData["reportName"]
-    reportVersion = reportData["reportVersion"]
-    projectName = reportData["projectName"]
+    fileNameTimeStamp = reportData["fileNameTimeStamp"]
+    projectID = reportData["projectID"]
     SPDXData = reportData["SPDXData"]
 
     SPDXReports = []
 
-    for projectName in SPDXData["projectData"]:
 
-        for package in SPDXData["projectData"][projectName]["spdxPackages"]:
+    for projectID in SPDXData["projectData"]:
 
-            packageData = SPDXData["projectData"][projectName]["spdxPackages"][package]
+        textFile = reportName.replace(" ", "_") + "-" + str(projectID)  + "-" + fileNameTimeStamp + ".spdx"
+        logger.debug("textFile: %s" %textFile)
+
+        try:
+            report_ptr = open(textFile,"w")
+        except:
+            logger.error("Failed to open textFile %s:" %textFile)
+            raise
+
+        # Enter top level SPDX details
+        report_ptr.write("SPDXVersion: %s\n" %SPDXData["SPDXVersion"])
+        report_ptr.write("DataLicense: %s\n" %SPDXData["DataLicense"])
+        report_ptr.write("SPDXID: SPDXRef-DOCUMENT\n")
+        report_ptr.write("DocumentName: %s\n" %SPDXData["projectData"][projectID]["DocumentName"])
+        report_ptr.write("DocumentNamespace: %s\n" %SPDXData["projectData"][projectID]["DocumentNamespace"])
+        report_ptr.write("Creator: Tool: %s\n" %SPDXData["Creator"])
+        report_ptr.write("Created:  %s\n" %(datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")))
+
+        report_ptr.write("\n")
+        report_ptr.write("##------------------------------\n")
+        report_ptr.write("##  Package Information\n")
+        report_ptr.write("##------------------------------\n")
+        report_ptr.write("\n")
+
+        for package in SPDXData["projectData"][projectID]["spdxPackages"]:
+
+            packageData = SPDXData["projectData"][projectID]["spdxPackages"][package]
 
             packageName = packageData["packageName"]
             packageFiles = packageData["files"]
-        
-            # Grab the current date/time for report date stamp
-            now = datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
-
-            textFile = packageData["reportName"] 
-            logger.debug("textFile: %s" %textFile)
-
-            try:
-                report_ptr = open(textFile,"w")
-            except:
-                logger.error("Failed to open textFile %s:" %textFile)
-                raise
-
-            report_ptr.write("SPDXVersion: %s\n" %SPDXData["SPDXVersion"])
-            report_ptr.write("DataLicense: %s\n" %SPDXData["DataLicense"])
-            report_ptr.write("SPDXID: SPDXRef-DOCUMENT\n")
-            report_ptr.write("DocumentName: %s\n" %packageData["DocumentName"])
-            report_ptr.write("DocumentNamespace: %s\n" %packageData["DocumentNamespace"])
-            report_ptr.write("Creator: Tool: %s\n" %SPDXData["Creator"])
-            report_ptr.write("Created:  %s\n" %now)
 
             report_ptr.write("\n")
-            report_ptr.write("##------------------------------\n")
-            report_ptr.write("##  Package Information\n")
-            report_ptr.write("##------------------------------\n")
+            report_ptr.write("#### Package: %s\n" %packageName)
             report_ptr.write("\n")
-
             report_ptr.write("PackageName: %s\n" %packageName)
             report_ptr.write("SPDXID: %s\n" %(packageData["SPDXID"]))
             report_ptr.write("PackageDownloadLocation: %s\n" %packageData["PackageDownloadLocation"])
@@ -228,7 +136,7 @@ def generate_spdx_text_report(reportData):
 
             report_ptr.write("\n")
             report_ptr.write("##------------------------------\n")
-            report_ptr.write("##  File Information\n")
+            report_ptr.write("##  Package File Information\n")
             report_ptr.write("##------------------------------\n")
             report_ptr.write("\n")
 
@@ -249,23 +157,27 @@ def generate_spdx_text_report(reportData):
                 
                 report_ptr.write("\n")
 
+            report_ptr.write("\n")
             report_ptr.write("##------------------------------\n")
-            report_ptr.write("##  Relationship Information\n")
+            report_ptr.write("##  Package Relationship Information\n")
             report_ptr.write("##------------------------------\n")
             report_ptr.write("\n")
+
+
+            packageData = SPDXData["projectData"][projectID]["spdxPackages"][package]
+
+            packageName = packageData["packageName"]
+            packageFiles = packageData["files"]
 
             report_ptr.write("Relationship: %s DESCRIBES %s\n" %("SPDXRef-DOCUMENT", packageData["SPDXID"] ))
             report_ptr.write("Relationship: %s DESCRIBED_BY  %s\n" %(packageData["SPDXID"], "SPDXRef-DOCUMENT" ))
 
+            for file in packageFiles:
+                report_ptr.write("Relationship: %s CONTAINS %s\n" %(packageData["SPDXID"], packageFiles[file]["SPDXID"] ))
             report_ptr.write("\n")
 
-            for file in packageFiles:
-                report_ptr.write("## ----------------------- Relationship -----------------------\n")
-                report_ptr.write("Relationship: %s CONTAINS %s\n" %(packageData["SPDXID"], packageFiles[file]["SPDXID"] ))
-                report_ptr.write("\n")
-
-            report_ptr.close() 
-            SPDXReports.append(textFile)
+        report_ptr.close() 
+        SPDXReports.append(textFile)
 
     logger.info("    Exiting generate_spdx_text_report")
 

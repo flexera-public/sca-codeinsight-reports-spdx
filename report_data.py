@@ -30,29 +30,30 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
     # Parse report options
     includeChildProjects = reportOptions["includeChildProjects"]  # True/False
 
-    SPDXVersion = "SPDX-2.2"
-    DataLicense = "CC0-1.0"
-    DocumentNamespaceBase = "http:/spdx.org/spdxdocs"  # This shold be modified for each Code Insight instance
-    Creator = "Code Insight"
-
     projectList = [] # List to hold parent/child details for report
     projectData = {} # Create a dictionary containing the project level summary data using projectID as keys
 
     # Get the list of parent/child projects start at the base project
     projectHierarchy = CodeInsight_RESTAPIs.project.get_child_projects.get_child_projects_recursively(baseURL, projectID, authToken)
+    projectName = projectHierarchy["name"]
+
+    SPDXVersion = "SPDX-2.2"
+    DataLicense = "CC0-1.0"
+    DocumentNamespaceBase = "http:/spdx.org/spdxdocs"  # This shold be modified for each Code Insight instance
+    Creator = "Code Insight"
 
     # Create a list of project data sorted by the project name at each level for report display  
     # Add details for the parent node
     nodeDetails = {}
     nodeDetails["parent"] = "#"  # The root node
-    nodeDetails["projectName"] = projectHierarchy["name"]
-    nodeDetails["projectID"] = projectHierarchy["id"]
+    nodeDetails["projectName"] = projectName
+    nodeDetails["projectID"] = projectID
     nodeDetails["projectLink"] = baseURL + "/codeinsight/FNCI#myprojectdetails/?id=" + str(projectHierarchy["id"]) + "&tab=projectInventory"
 
     projectList.append(nodeDetails)
 
     if includeChildProjects == "true":
-        projectList = create_project_hierarchy(projectHierarchy, projectHierarchy["id"], projectList, baseURL)
+        projectList = create_project_hierarchy(projectHierarchy, projectID, projectList, baseURL)
     else:
         logger.debug("Child hierarchy disabled")
 
@@ -66,7 +67,8 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
         inventoryItems = projectInventory["inventoryItems"]
 
         # Create empty dictionary for project level data for this project
-        projectData[projectName] = {}
+        projectData[projectID] = {}
+        projectData[projectID]["projectName"] = projectName
   
         spdxPackages = {}
         filesNotInComponents = []
@@ -331,19 +333,24 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
             spdxPackages[package]["PackageVerificationCode"] = (hashlib.sha1(stringHash.encode('utf-8'))).hexdigest()
             spdxPackages[package]["PackageLicenseInfoFromFiles"] = set(fileLicenses)
 
-        projectData[projectName]["spdxPackages"] = spdxPackages
+        projectData[projectID]["spdxPackages"] = spdxPackages
+        projectData[projectID]["DocumentName"] = projectName.replace(" ", "_") + "-" + str(projectID)
+        projectData[projectID]["DocumentNamespace"] = DocumentNamespaceBase + "/" + projectName.replace(" ", "_") + "-" + str(projectID) + "-" + str(uuid.uuid1())
 
         # Was there any files that did not contains SHA1 details?
-        projectData[projectName]["invalidSHA1"] = invalidSHA1
+        projectData[projectID]["invalidSHA1"] = invalidSHA1
 
     SPDXData = {}
     SPDXData["SPDXVersion"] = SPDXVersion
     SPDXData["DataLicense"] = DataLicense
     SPDXData["Creator"] = Creator
     SPDXData["projectData"] = projectData
+    SPDXData["DocumentNamespaceBase"] = DocumentNamespaceBase
+
 
     reportData = {}
     reportData["reportName"] = reportName
+    reportData["projectList"] = projectList
     reportData["projectID"] = projectID
     reportData["reportVersion"] = reportVersion
     reportData["projectName"] =  projectHierarchy["name"]
@@ -364,7 +371,7 @@ def create_project_hierarchy(project, parentID, projectList, baseURL):
         for childProject in sorted(project["childProject"], key = lambda i: i['name'] ) :
 
             nodeDetails = {}
-            nodeDetails["projectID"] = childProject["id"]
+            nodeDetails["projectID"] = str(childProject["id"])
             nodeDetails["parent"] = parentID
             nodeDetails["projectName"] = childProject["name"]
             nodeDetails["projectLink"] = baseURL + "/codeinsight/FNCI#myprojectdetails/?id=" + str(childProject["id"]) + "&tab=projectInventory"
