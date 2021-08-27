@@ -11,6 +11,7 @@ File : report_artifacts.py
 import logging
 from datetime import datetime
 import base64
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -45,8 +46,13 @@ def generate_spdx_summary_report(reportData, spdxTextFiles):
 
     reportName = reportData["reportName"]
     fileNameTimeStamp = reportData["fileNameTimeStamp"]
+    topLevelProjectName = reportData["projectName"]
+    topLevelProjectID = str(reportData["projectID"])
 
-    summaryTextFile = reportName.replace(" ", "_") + "-summary-" + fileNameTimeStamp + ".txt"
+    # Clean up the project name in case there are special characters
+    projectNameForFile = re.sub(r"[^a-zA-Z0-9]+", '-', topLevelProjectName )
+
+    summaryTextFile = projectNameForFile + "-" + topLevelProjectID + "-" + reportName.replace(" ", "_") + "-summary-" + fileNameTimeStamp + ".txt"
     logger.debug("summaryTextFile: %s" %summaryTextFile)
 
     try:
@@ -55,16 +61,13 @@ def generate_spdx_summary_report(reportData, spdxTextFiles):
         logger.error("Failed to open summaryTextFile %s:" %summaryTextFile)
         raise
 
-    report_ptr.write("An SPDX report has been generated for each project within the specified hierachy. These reports can be found within the downloadable zipfile within Code Insight. \n\n")
-    report_ptr.write("Below are the mappings between the project name and the associated SPDX report for the project:\n")
+    report_ptr.write("An SPDX report has been generated for each project within the specified project hierachy.\n")
+    report_ptr.write("\n")
+    report_ptr.write("The following reports are included within the downloadable zip file:\n")
     report_ptr.write("\n")
 
     for spdx in spdxTextFiles:
-        # The name of the SPDX file includes the project ID so we can grab that and map it back to the project name within projectList
-        projectID = spdx.split("-")[-3] # project ID is the 3rd item from the last in the report name
-        projectName = list(filter(lambda project: project['projectID'] == projectID, reportData["projectList"]))[0]["projectName"]
-        report_ptr.write("\t-  SPDX report for project: %s --> %s\n" %(projectName, spdx ))
-
+        report_ptr.write("\t -  %s\n" %(spdx ))
 
     report_ptr.close() 
     logger.info("    Exiting generate_spdx_summary_report")
@@ -87,14 +90,20 @@ def generate_spdx_text_report(reportData):
 
     for projectID in SPDXData["projectData"]:
 
-        textFile = reportName.replace(" ", "_") + "-" + str(projectID)  + "-" + fileNameTimeStamp + ".spdx"
+        projectName = SPDXData["projectData"][projectID]["projectName"]
+        # Clean up the project name in case there are special characters
+        projectNameForFile = re.sub(r"[^a-zA-Z0-9]+", '-', projectName )
+
+        textFile = projectNameForFile + "-" + projectID + "-" + reportName.replace(" ", "_") + "-" + fileNameTimeStamp + ".spdx"
         logger.debug("textFile: %s" %textFile)
 
         try:
             report_ptr = open(textFile,"w")
         except:
+            print("Fail open error due to project name??")
             logger.error("Failed to open textFile %s:" %textFile)
             raise
+     
 
         # Enter top level SPDX details
         report_ptr.write("SPDXVersion: %s\n" %SPDXData["SPDXVersion"])
