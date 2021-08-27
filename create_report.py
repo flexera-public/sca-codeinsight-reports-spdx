@@ -147,7 +147,11 @@ def create_report_zipfile(reportOutputs, reportName, projectName, projectID, fil
 	projectNameForFile = re.sub(r"[^a-zA-Z0-9]+", '-', projectName )
 
 	# create a ZipFile object
-	allFormatZipFile = projectNameForFile + "-" + projectID + "-" + reportName.replace(" ", "_") + "-" + fileNameTimeStamp + ".zip"
+	if len(reportOutputs["allFormats"]) == 1 :
+		allFormatZipFile = projectNameForFile + "-" + projectID + "-" + reportName.replace(" ", "_") + "-" + fileNameTimeStamp + ".zip"
+	else: 
+		allFormatZipFile = projectNameForFile + "-" + projectID + "-with-children-" + reportName.replace(" ", "_") + "-" + fileNameTimeStamp + ".zip"
+	
 	allFormatsZip = zipfile.ZipFile(allFormatZipFile, 'w', zipfile.ZIP_DEFLATED)
 
 	logger.debug("     	  Create downloadable archive: %s" %allFormatZipFile)
@@ -162,7 +166,8 @@ def create_report_zipfile(reportOutputs, reportName, projectName, projectID, fil
 	print("        Downloadable archive created")
 
 	# Now create a temp zipfile of the zipfile along with the viewable file itself
-	uploadZipflle = projectNameForFile + "-" + projectID + "-" + reportName.replace(" ", "_") + "-" + fileNameTimeStamp + "_upload.zip"
+	uploadZipflle = allFormatZipFile.replace(".zip", "_upload.zip")
+
 	print("        Create zip archive containing viewable and downloadable archive for upload: %s" %uploadZipflle)
 	logger.debug("    Create zip archive containing viewable and downloadable archive for upload: %s" %uploadZipflle)
 	zipToUpload = zipfile.ZipFile(uploadZipflle, 'w', zipfile.ZIP_DEFLATED)
