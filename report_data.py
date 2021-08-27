@@ -347,15 +347,13 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
     SPDXData["projectData"] = projectData
     SPDXData["DocumentNamespaceBase"] = DocumentNamespaceBase
 
-
     reportData = {}
     reportData["reportName"] = reportName
-    reportData["projectList"] = projectList
-    reportData["projectID"] = projectID
-    reportData["reportVersion"] = reportVersion
     reportData["projectName"] =  projectHierarchy["name"]
+    reportData["projectID"] = projectHierarchy["id"]
+    reportData["projectList"] = projectList
+    reportData["reportVersion"] = reportVersion
     reportData["SPDXData"] = SPDXData
-
 
     return reportData
 
