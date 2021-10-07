@@ -52,7 +52,7 @@ def generate_spdx_summary_report(reportData, spdxTextFiles):
     # Clean up the project name in case there are special characters
     projectNameForFile = re.sub(r"[^a-zA-Z0-9]+", '-', topLevelProjectName )
 
-    summaryTextFile = projectNameForFile + "-" + topLevelProjectID + "-with-children-" + reportName.replace(" ", "_") + "-summary-" + fileNameTimeStamp + ".txt"
+    summaryTextFile = projectNameForFile + "-with-children-" + topLevelProjectID + "-" + reportName.replace(" ", "_") + "-summary-" + fileNameTimeStamp + ".txt"
     logger.debug("summaryTextFile: %s" %summaryTextFile)
 
     try:

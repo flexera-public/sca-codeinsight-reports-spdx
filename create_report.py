@@ -150,7 +150,7 @@ def create_report_zipfile(reportOutputs, reportName, projectName, projectID, fil
 	if len(reportOutputs["allFormats"]) == 1 :
 		allFormatZipFile = projectNameForFile + "-" + projectID + "-" + reportName.replace(" ", "_") + "-" + fileNameTimeStamp + ".zip"
 	else: 
-		allFormatZipFile = projectNameForFile + "-" + projectID + "-with-children-" + reportName.replace(" ", "_") + "-" + fileNameTimeStamp + ".zip"
+		allFormatZipFile = projectNameForFile + "-with-children-" + projectID  + "-" + reportName.replace(" ", "_") + "-" + fileNameTimeStamp + ".zip"
 	
 	allFormatsZip = zipfile.ZipFile(allFormatZipFile, 'w', zipfile.ZIP_DEFLATED)
 
