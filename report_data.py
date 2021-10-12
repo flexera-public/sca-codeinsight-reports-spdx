@@ -85,6 +85,12 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                 inventoryID = inventoryItem["id"]
                 packageName = componentName + "-" + versionName + "-" + str(inventoryID)
 
+                PackageComment = {}
+                PackageComment["inventoryItemName"] = inventoryItem["name"]
+                PackageComment["componentId"] = inventoryItem["componentId"]
+                PackageComment["componentVersionId"] = inventoryItem["componentVersionId"]
+                PackageComment["selectedLicenseId"] = inventoryItem["selectedLicenseId"]
+
                 logger.info("Processing %s" %(packageName))
                 filesInInventory = inventoryItem["filePaths"]
 
@@ -97,6 +103,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                 spdxPackages[packageName]["DocumentName"] =  projectName + "-" + packageName.replace(" ", "_")
                 spdxPackages[packageName]["DocumentNamespace"] = DocumentNamespaceBase + "/" + projectName + "-" + packageName.replace(" ", "_") + "-" + str(uuid.uuid1())
                 spdxPackages[packageName]["PackageDownloadLocation"] = inventoryItem["componentUrl"]
+                spdxPackages[packageName]["PackageComment"] = PackageComment
                 spdxPackages[packageName]["containedFiles"] = filesInInventory
 
                 ##########################################
