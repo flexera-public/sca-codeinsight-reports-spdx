@@ -22,8 +22,6 @@ import report_artifacts
 import report_errors
 import CodeInsight_RESTAPIs.project.upload_reports
 
-logfileName = os.path.dirname(os.path.realpath(__file__)) + "/_spdx_report.log"
-
 ###################################################################################
 # Test the version of python to make sure it's at least the version the script
 # was tested on, otherwise there could be unexpected results
@@ -31,6 +29,11 @@ if sys.version_info <= (3, 5):
     raise Exception("The current version of Python is less than 3.5 which is unsupported.\n Script created/tested against python version 3.8.1. ")
 else:
     pass
+
+propertiesFile = "../server_properties.json"  # Created by installer or manually
+propertiesFile = logfileName = os.path.dirname(os.path.realpath(__file__)) + "/" +  propertiesFile
+baseURL = "http://localhost:8888"   # Required if the core.server.properties file is not used
+logfileName = os.path.dirname(os.path.realpath(__file__)) + "/_spdx_report.log"
 
 ###################################################################################
 #  Set up logging handler to allow for different levels of logging to be capture
@@ -68,6 +71,19 @@ def main():
 	# Based on how the shell pass the arguemnts clean up the options if on a linux system:w
 	if sys.platform.startswith('linux'):
 		reportOptions = reportOptions.replace('""', '"')[1:-1]
+
+	#####################################################################################################
+	#  Code Insight System Information
+	#  Pull the base URL from the same file that the installer is creating
+	try:
+		file_ptr = open(propertiesFile, "r")
+		configData = json.load(file_ptr)
+		baseURL = configData["core.server.url"]
+		file_ptr.close()
+		logger.info("Using baseURL from properties file: %s" %propertiesFile)
+	except:
+		logger.info("Using baseURL, %s,  from create_report.py" %baseURL)
+
 	
 	reportOptions = json.loads(reportOptions)
 	reportOptions = verifyOptions(reportOptions) 
