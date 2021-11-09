@@ -14,12 +14,12 @@ logger = logging.getLogger(__name__)
 #--------------------------------------------------------------------------------#
 
 def generate_spdx_summary_report(reportData, spdxTextFiles):
-    logger.info("Entering generate_spdx_summary_report")
+    logger.info("    Entering generate_spdx_summary_report")
 
     reportFileNameBase = reportData["reportFileNameBase"]
 
     summaryTextFile = reportFileNameBase + ".txt"
-    logger.debug("    Creating summaryTextFile: %s" %summaryTextFile)
+    logger.debug("        Creating summaryTextFile: %s" %summaryTextFile)
 
     try:
         report_ptr = open(summaryTextFile,"w")

@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 #--------------------------------------------------------------------------------#
 
 def generate_tag_value_spdx_report(reportData):
-    logger.info("Entering generate_spdx_text_report")
+    logger.info("    Entering generate_spdx_text_report")
     
     reportName = reportData["reportName"]
     fileNameTimeStamp =  reportData["fileNameTimeStamp"] 
@@ -32,7 +32,7 @@ def generate_tag_value_spdx_report(reportData):
         projectNameForFile = re.sub(r"[^a-zA-Z0-9]+", '-', projectName )
 
         spdxFile = projectNameForFile + "-" + projectID + "-" + reportName.replace(" ", "_") + "-" + fileNameTimeStamp + ".spdx"
-        logger.debug("Creating project SPDX file: %s" %spdxFile)
+        logger.debug("        Creating project SPDX file: %s" %spdxFile)
 
         try:
             report_ptr = open(spdxFile,"w")

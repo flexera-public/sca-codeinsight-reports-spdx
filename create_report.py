@@ -37,8 +37,9 @@ logfileName = os.path.dirname(os.path.realpath(__file__)) + "/_spdx_report.log"
 
 ###################################################################################
 #  Set up logging handler to allow for different levels of logging to be capture
-logging.basicConfig(format='%(asctime)s,%(msecs)d %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s', datefmt='%Y-%m-%d:%H:%M:%S', filename=logfileName, filemode='w',level=logging.DEBUG)
+logging.basicConfig(format='%(asctime)s,%(msecs)-3d  %(levelname)-8s [%(filename)-30s:%(lineno)-4d]  %(message)s', datefmt='%Y-%m-%d:%H:%M:%S', filename=logfileName, filemode='w',level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+logging.getLogger("urllib3").setLevel(logging.WARNING)  # Disable logging for requests module
 
 ####################################################################################
 # Create command line argument options
@@ -183,11 +184,11 @@ def create_report_zipfile(reportOutputs, reportFileNameBase):
 	
 	allFormatsZip = zipfile.ZipFile(allFormatZipFile, 'w', zipfile.ZIP_DEFLATED)
 
-	logger.debug("     	  Create downloadable archive: %s" %allFormatZipFile)
+	logger.debug("    Create downloadable archive: %s" %allFormatZipFile)
 	print("        Create downloadable archive: %s" %allFormatZipFile)
 	for format in reportOutputs["allFormats"]:
 		print("            Adding %s to zip" %format)
-		logger.debug("    Adding %s to zip" %format)
+		logger.debug("        Adding %s to zip" %format)
 		allFormatsZip.write(format)
 
 	allFormatsZip.close()

@@ -191,33 +191,33 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
             # Create a unique identifier based on fileID and scan location
             uniqueFileID = str(scannedFileId) + ("-r" if remoteFile else "-s")
      
-            logger.info("File level evidence for %s - %s" %(uniqueFileID, filePath))
+            logger.info("        File level evidence for %s - %s" %(uniqueFileID, filePath))
 
             ##########################################
             # Manage File Level licenses
             if licenseEvidenceFound:
-                logger.info("    License evidience discovered")
+                logger.info("            License evidience discovered")
                 # The license evidience is not in SPDX form so consolidate and map       
                 for index, licenseEvidence in enumerate(licenseEvidenceFound):
                     if licenseEvidence in SPDX_license_mappings.LICENSEMAPPINGS:
                         licenseEvidenceFound[index] = SPDX_license_mappings.LICENSEMAPPINGS[licenseEvidence]
-                        logger.info("        \"%s\" maps to SPDX ID: \"%s\"" %(licenseEvidence, SPDX_license_mappings.LICENSEMAPPINGS[licenseEvidence] ))
+                        logger.info("                \"%s\" maps to SPDX ID: \"%s\"" %(licenseEvidence, SPDX_license_mappings.LICENSEMAPPINGS[licenseEvidence] ))
                     else:
-                        logger.warning("        File contains '%s' which is not a valid SPDX ID. - Using NOASSERTION." %(licenseEvidence))
+                        logger.warning("                File contains '%s' which is not a valid SPDX ID. - Using NOASSERTION." %(licenseEvidence))
 
                         licenseEvidenceFound[index]  = "NOASSERTION"
             
                 licenseEvidenceFound = licenseEvidenceFound  
             else:
-                logger.info("    No license evidience discovered")
+                logger.info("            No license evidience discovered")
                 licenseEvidenceFound = ["NONE"]
 
             ##########################################
             # Manage File Level Copyrights
             if copyrightEvidenceFound:
-                logger.info("    Copyright evidience discovered")
+                logger.info("            Copyright evidience discovered")
             else:
-                logger.info("    No copyright evidience discovered")
+                logger.info("            No copyright evidience discovered")
                 copyrightEvidenceFound = ["NONE"]
 
             fileEvidence[uniqueFileID] = {}
@@ -276,7 +276,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                 if fileType:
                     scannedFileDetails["FileType"] = fileType.split("/")[0].upper()
                 else:
-                    logger.info("Unmapped file type extension for file: %s" %FileName)
+                    logger.info("        Unmapped file type extension for file: %s" %FileName)
                     scannedFileDetails["FileType"] = "OTHER"
             
             scannedFileDetails["FileLicenseConcluded"] = "NOASSERTION"
@@ -289,11 +289,11 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                 if scannedFile["fileSHA1"]:
                     scannedFileDetails["fileSHA1"] = scannedFile["fileSHA1"]
                 else:
-                    logger.error("%s does not have a SHA1 calculation" %FileName)
+                    logger.warning("        %s does not have a SHA1 calculation" %FileName)
                     scannedFileDetails["fileSHA1"] = hashlib.sha1(scannedFile["fileMD5"].encode('utf-8')).hexdigest()
                     invalidSHA1 = True # There was no SHA1 for at least one file
             else:
-                logger.error("%s does not have a SHA1 key in the response" %FileName)
+                logger.warning("        %s does not have a SHA1 key in the response" %FileName)
                 scannedFileDetails["fileSHA1"] = hashlib.sha1(scannedFile["fileMD5"].encode('utf-8')).hexdigest()
                 invalidSHA1 = True # There was no SHA1 for at least one file
             
