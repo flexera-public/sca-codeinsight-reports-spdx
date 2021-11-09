@@ -45,15 +45,13 @@ def generate_spdx_summary_report(reportData, spdxTextFiles):
     logger.info("Entering generate_spdx_summary_report")
 
     reportName = reportData["reportName"]
-    fileNameTimeStamp = reportData["fileNameTimeStamp"]
+    reportFileNameBase = reportData["reportFileNameBase"]
+    reportTimeStamp =  reportData["reportTimeStamp"] 
     topLevelProjectName = reportData["projectName"]
     topLevelProjectID = str(reportData["projectID"])
 
-    # Clean up the project name in case there are special characters
-    projectNameForFile = re.sub(r"[^a-zA-Z0-9]+", '-', topLevelProjectName )
-
-    summaryTextFile = projectNameForFile + "-with-children-" + topLevelProjectID + "-" + reportName.replace(" ", "_") + "-summary-" + fileNameTimeStamp + ".txt"
-    logger.debug("summaryTextFile: %s" %summaryTextFile)
+    summaryTextFile = reportFileNameBase + ".txt"
+    logger.debug("    Creating summaryTextFile: %s" %summaryTextFile)
 
     try:
         report_ptr = open(summaryTextFile,"w")
@@ -81,7 +79,7 @@ def generate_spdx_text_report(reportData):
     logger.info("Entering generate_spdx_text_report")
     
     reportName = reportData["reportName"]
-    fileNameTimeStamp = reportData["fileNameTimeStamp"]
+    fileNameTimeStamp =  reportData["fileNameTimeStamp"] 
     projectID = reportData["projectID"]
     SPDXData = reportData["SPDXData"]
 
@@ -94,14 +92,14 @@ def generate_spdx_text_report(reportData):
         # Clean up the project name in case there are special characters
         projectNameForFile = re.sub(r"[^a-zA-Z0-9]+", '-', projectName )
 
-        textFile = projectNameForFile + "-" + projectID + "-" + reportName.replace(" ", "_") + "-" + fileNameTimeStamp + ".spdx"
-        logger.debug("textFile: %s" %textFile)
+        spdxFile = projectNameForFile + "-" + projectID + "-" + reportName.replace(" ", "_") + "-" + fileNameTimeStamp + ".spdx"
+        logger.debug("Creating project SPDX file: %s" %spdxFile)
 
         try:
-            report_ptr = open(textFile,"w")
+            report_ptr = open(spdxFile,"w")
         except:
             print("Fail open error due to project name??")
-            logger.error("Failed to open textFile %s:" %textFile)
+            logger.error("Failed to open textFile %s:" %spdxFile)
             raise
      
 
@@ -186,7 +184,7 @@ def generate_spdx_text_report(reportData):
             report_ptr.write("\n")
 
         report_ptr.close() 
-        SPDXReports.append(textFile)
+        SPDXReports.append(spdxFile)
 
     logger.info("    Exiting generate_spdx_text_report")
 

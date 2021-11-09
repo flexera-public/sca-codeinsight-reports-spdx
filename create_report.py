@@ -106,6 +106,17 @@ def main():
 		print("    Report data has been collected")
 		reportData["fileNameTimeStamp"] = fileNameTimeStamp
 		projectName = reportData["projectName"]
+		projectNameForFile = re.sub(r"[^a-zA-Z0-9]+", '-', projectName )  # Remove special characters from project name for artifacts
+
+		# Are there child projects involved?  If so have the artifact file names reflect this fact
+		if len(reportData["projectList"])==1:
+			reportFileNameBase = projectNameForFile + "-" + str(projectID) + "-" + reportName.replace(" ", "_") + "-" + fileNameTimeStamp
+		else:
+			reportFileNameBase = projectNameForFile + "-with-children-" + str(projectID) + "-" + reportName.replace(" ", "_") + "-" + fileNameTimeStamp
+
+		reportData["projectNameForFile"] = projectNameForFile
+		reportData["reportTimeStamp"] = datetime.strptime(fileNameTimeStamp, "%Y%m%d-%H%M%S").strftime("%B %d, %Y at %H:%M:%S")
+		reportData["reportFileNameBase"] = reportFileNameBase
 
 		if "errorMsg" in reportData.keys():
 			reports = report_errors.create_error_report(reportData)
