@@ -284,10 +284,16 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
             scannedFileDetails["fileId"] = uniqueFileID
             scannedFileDetails["fileMD5"] = scannedFile["fileMD5"]
 
-            if scannedFile["fileSHA1"]:
-                scannedFileDetails["fileSHA1"] = scannedFile["fileSHA1"]
+            # See if there is a SHA1 key (2021R3 or later) and if so is it populated (Enabeld in DB)
+            if "fileSHA1" in scannedFileDetails:
+                if scannedFile["fileSHA1"]:
+                    scannedFileDetails["fileSHA1"] = scannedFile["fileSHA1"]
+                else:
+                    logger.error("%s does not have a SHA1 calculation" %FileName)
+                    scannedFileDetails["fileSHA1"] = hashlib.sha1(scannedFile["fileMD5"].encode('utf-8')).hexdigest()
+                    invalidSHA1 = True # There was no SHA1 for at least one file
             else:
-                logger.error("%s does not have a SHA1 calculation" %FileName)
+                logger.error("%s does not have a SHA1 key in the response" %FileName)
                 scannedFileDetails["fileSHA1"] = hashlib.sha1(scannedFile["fileMD5"].encode('utf-8')).hexdigest()
                 invalidSHA1 = True # There was no SHA1 for at least one file
             
