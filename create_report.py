@@ -97,9 +97,16 @@ def main():
 	# Collect the data for the report
 	
 	if "errorMsg" in reportOptions.keys():
-		reportOptions["reportName"] = reportName
-		projectName = "Error"
-		reports = report_errors.create_error_report(reportOptions)
+
+		reportFileNameBase = reportName.replace(" ", "_") + "-Creation_Error-" + fileNameTimeStamp
+
+		reportData = {}
+		reportData["errorMsg"] = reportOptions["errorMsg"]
+		reportData["reportName"] = reportName
+		reportData["reportTimeStamp"] = datetime.strptime(fileNameTimeStamp, "%Y%m%d-%H%M%S").strftime("%B %d, %Y at %H:%M:%S")
+		reportData["reportFileNameBase"] = reportFileNameBase
+
+		reports = report_errors.create_error_report(reportData)
 		print("    *** ERROR  ***  Error found validating report options")
 	else:
 		reportData = report_data.gather_data_for_report(baseURL, projectID, authToken, reportName, reportVersion, reportOptions)
@@ -125,7 +132,8 @@ def main():
 			reports = report_artifacts.create_report_artifacts(reportData)
 			print("    Report artifacts have been created")
 
-	uploadZipfile = create_report_zipfile(reports, reportName, projectName, projectID, fileNameTimeStamp)
+	print("    Create report archive for upload")
+	uploadZipfile = create_report_zipfile(reports, reportFileNameBase)
 	print("    Upload zip file creation completed")
 	CodeInsight_RESTAPIs.project.upload_reports.upload_project_report_data(baseURL, projectID, reportID, authToken, uploadZipfile)
 	print("    Report uploaded to Code Insight")
@@ -168,16 +176,10 @@ def verifyOptions(reportOptions):
 
 
 #---------------------------------------------------------------------#
-def create_report_zipfile(reportOutputs, reportName, projectName, projectID, fileNameTimeStamp):
+def create_report_zipfile(reportOutputs, reportFileNameBase):
 	logger.info("Entering create_report_zipfile")
-
-	projectNameForFile = re.sub(r"[^a-zA-Z0-9]+", '-', projectName )
-
-	# create a ZipFile object
-	if len(reportOutputs["allFormats"]) == 1 :
-		allFormatZipFile = projectNameForFile + "-" + projectID + "-" + reportName.replace(" ", "_") + "-" + fileNameTimeStamp + ".zip"
-	else: 
-		allFormatZipFile = projectNameForFile + "-with-children-" + projectID  + "-" + reportName.replace(" ", "_") + "-" + fileNameTimeStamp + ".zip"
+	
+	allFormatZipFile = reportFileNameBase + ".zip"
 	
 	allFormatsZip = zipfile.ZipFile(allFormatZipFile, 'w', zipfile.ZIP_DEFLATED)
 
