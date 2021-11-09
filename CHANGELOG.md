@@ -6,10 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.1.3] - 2021-08-27
+
+## [1.2.1] - 2021-11-09
 ### Added
-- Change artifact names
-- Support projects without scanned files
+- Support for report installer
+- Logging cleanup
+- Misc cleanup
 
 ## [1.1.2] - 2021-08-25
 ### Added
