@@ -10,8 +10,9 @@ File : report_errors.py
 
 import logging
 import os
-from datetime import datetime
 import base64
+
+import _version
 
 logger = logging.getLogger(__name__)
 
@@ -40,16 +41,17 @@ def generate_error_report(reportData):
     logoImageFile =  os.path.join(scriptDirectory, "html-assets/images/logo_reversed.svg")
     iconFile =  os.path.join(scriptDirectory, "html-assets/images/favicon-revenera.ico")
     
-    reportName = "Report Creation Failure"
-    reportName = reportData["reportName"] + " - Report Creation Failure"
+    reportName = reportData["reportName"]
+    reportFileNameBase = reportData["reportFileNameBase"]
     errorMsg = reportData["errorMsg"]
+    reportTimeStamp = reportData["reportTimeStamp"] 
 
     #########################################################
     #  Encode the image files
     encodedLogoImage = encodeImage(logoImageFile)
     encodedfaviconImage = encodeImage(iconFile)
 
-    htmlFile = reportName.replace(" ", "_") + ".html"
+    htmlFile = reportFileNameBase + ".html"
     logger.debug("htmlFile: %s" %htmlFile)
     
     #---------------------------------------------------------------------------------------------------
@@ -124,10 +126,11 @@ def generate_error_report(reportData):
     #---------------------------------------------------------------------------------------------------
     html_ptr.write("<!-- BEGIN FOOTER -->\n")
     html_ptr.write("<div class='report-footer'>\n")
-    html_ptr.write("  <div style='float:left'>&copy; %s Flexera</div>\n" %datetime.now().year)
-    html_ptr.write("  <div style='float:right'>Generated on %s</div>\n" %datetime.now().strftime("%B %d, %Y at %H:%M:%S"))
+    html_ptr.write("  <div style='float:right'>Generated on %s</div>\n" %reportTimeStamp)
+    html_ptr.write("<br>\n")
+    html_ptr.write("  <div style='float:right'>Report Version: %s</div>\n" %_version.__version__)
     html_ptr.write("</div>\n")
-    html_ptr.write("<!-- END FOOTER -->\n")   
+    html_ptr.write("<!-- END FOOTER -->\n")  
 
     html_ptr.write("</div>\n")    
 
