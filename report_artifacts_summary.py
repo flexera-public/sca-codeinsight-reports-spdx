@@ -27,7 +27,7 @@ def generate_spdx_summary_report(reportData, spdxTextFiles):
         logger.error("Failed to open summaryTextFile %s:" %summaryTextFile)
         raise
 
-    report_ptr.write("An SPDX report has been generated for each project within the specified project hierachy.\n")
+    report_ptr.write("An SPDX report has been generated for each project within the specified project hierarchy.\n")
     report_ptr.write("\n")
     report_ptr.write("The following reports are included within the downloadable zip file:\n")
     report_ptr.write("\n")
