@@ -1,6 +1,6 @@
 [submodule "CodeInsight_RESTAPIs"]
 	path = CodeInsight_RESTAPIs
-	url = https://github.com/flexera/sca-codeinsight-restapi-python.git
+	url = https://github.com/flexera-public/sca-codeinsight-restapi-python.git
 [submodule "html-assets"]
 	path = html-assets
-	url = https://github.com/flexera/sca-codeinsight-branding.git
+	url = https://github.com/flexera-public/sca-codeinsight-branding.git
