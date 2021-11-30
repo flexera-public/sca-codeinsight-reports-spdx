@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.3] - 2021-11-30
+### Fixed
+- Use just compenant name for package
+### Added
+- Added component version as separate tag
+### Changed
+- Migrated to flexera-public org
+
 ## [1.2.2] - 2021-11-16
 ### Fixed
 - Fixed support for server_properties.json file
