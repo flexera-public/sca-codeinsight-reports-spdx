@@ -65,9 +65,10 @@ def generate_tag_value_spdx_report(reportData):
             packageFiles = packageData["files"]
 
             report_ptr.write("\n")
-            report_ptr.write("#### Package: %s\n" %packageName)
+            report_ptr.write("#### Package: %s\n" %package)
             report_ptr.write("\n")
             report_ptr.write("PackageName: %s\n" %packageName)
+            report_ptr.write("PackageVersion: %s\n" %packageData["packageVersion"])
             report_ptr.write("SPDXID: %s\n" %(packageData["SPDXID"]))
             report_ptr.write("PackageDownloadLocation: %s\n" %packageData["PackageDownloadLocation"])
             report_ptr.write("PackageVerificationCode: %s\n" %packageData["PackageVerificationCode"])

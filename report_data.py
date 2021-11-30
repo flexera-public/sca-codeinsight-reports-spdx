@@ -97,7 +97,8 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                 # Contains the deatils for the package/inventory item
                 spdxPackages[packageName] ={}
                 spdxPackages[packageName]["reportName"] = str(projectID) + "-" + packageName.replace(" ", "_") + ".spdx"
-                spdxPackages[packageName]["packageName"] = packageName
+                spdxPackages[packageName]["packageName"] = componentName
+                spdxPackages[packageName]["packageVersion"] = versionName
                 spdxPackages[packageName]["SPDXID"] = "SPDXRef-Pkg-" + packageName
                 spdxPackages[packageName]["PackageFileName"] = packageName
                 spdxPackages[packageName]["DocumentName"] =  projectName + "-" + packageName.replace(" ", "_")
@@ -162,6 +163,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
         spdxPackages[nonInventoryPackageName] ={}
         spdxPackages[nonInventoryPackageName]["reportName"] = str(projectID)  + "-" + nonInventoryPackageName + ".spdx"
         spdxPackages[nonInventoryPackageName]["packageName"] = nonInventoryPackageName
+        spdxPackages[nonInventoryPackageName]["packageVersion"] = "N/A"
         spdxPackages[nonInventoryPackageName]["containedFiles"] = []
         spdxPackages[nonInventoryPackageName]["SPDXID"] = "SPDXRef-Pkg-" + nonInventoryPackageName
         spdxPackages[nonInventoryPackageName]["PackageFileName"] = nonInventoryPackageName
