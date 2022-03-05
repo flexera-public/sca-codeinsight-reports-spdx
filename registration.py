@@ -69,13 +69,26 @@ enableProjectPickerValue = "false"   # true if a second project can be used with
 reportOptions = []
 reportOption = {}
 reportOption["name"] = "includeChildProjects"
-reportOption["label"] = "Include child project data (True/False)"
+reportOption["label"] = "Include child project data? (True/False)"
 reportOption["description"] = "Should the report include data from child projects? <b>(True/False)</b>"
 reportOption["type"] = "string"
 reportOption["defaultValue"] = "True"
 reportOption["required"] = "true"
 reportOption["order"] = "1"
 reportOptions.append(reportOption)
+
+reportOption = {}
+reportOption["name"] = "includeUnassociatedFiles"
+reportOption["label"] = "Include files that are not associated to inventory items? (True/False)"
+reportOption["description"] = "Should the report include data for files not associated to inventory items? <b>(True/False)</b>"
+reportOption["type"] = "string"
+reportOption["defaultValue"] = "False"
+reportOption["required"] = "true"
+reportOption["order"] = "2"
+reportOptions.append(reportOption)
+
+
+
 
 #####################################################################################################
 # Get the directory name in order to register the script

@@ -174,6 +174,7 @@ def verifyOptions(reportOptions):
 	falseOptions = ["false", "f", "no", "n"]
 
 	includeChildProjects = reportOptions["includeChildProjects"]
+	includeUnassociatedFiles = reportOptions["includeUnassociatedFiles"]
 
 	if includeChildProjects.lower() in trueOptions:
 		reportOptions["includeChildProjects"] = "true"
@@ -181,6 +182,14 @@ def verifyOptions(reportOptions):
 		reportOptions["includeChildProjects"] = "false"
 	else:
 		reportOptions["errorMsg"].append("Invalid option for including child projects: <b>%s</b>.  Valid options are <b>True/False</b>" %includeChildProjects)
+
+	if includeUnassociatedFiles.lower() in trueOptions:
+		reportOptions["includeUnassociatedFiles"] = True
+	elif includeUnassociatedFiles.lower() in falseOptions:
+		reportOptions["includeUnassociatedFiles"] = False
+	else:
+		reportOptions["errorMsg"].append("Invalid option for including unassocated files: <b>%s</b>.  Valid options are <b>True/False</b>" %includeUnassociatedFiles)
+
 
 	if not reportOptions["errorMsg"]:
 		reportOptions.pop('errorMsg', None)

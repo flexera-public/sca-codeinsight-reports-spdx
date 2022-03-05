@@ -29,6 +29,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
 
     # Parse report options
     includeChildProjects = reportOptions["includeChildProjects"]  # True/False
+    includeUnassociatedFiles = reportOptions["includeUnassociatedFiles"]  # True/False
 
     projectList = [] # List to hold parent/child details for report
     projectData = {} # Create a dictionary containing the project level summary data using projectID as keys
@@ -159,19 +160,20 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                     filesNotInComponents.append(file)
 
         # Create a package to hold files not associated to an inventory item directly
-        nonInventoryPackageName = "OtherFiles"
-        spdxPackages[nonInventoryPackageName] ={}
-        spdxPackages[nonInventoryPackageName]["reportName"] = str(projectID)  + "-" + nonInventoryPackageName + ".spdx"
-        spdxPackages[nonInventoryPackageName]["packageName"] = nonInventoryPackageName
-        spdxPackages[nonInventoryPackageName]["packageVersion"] = "N/A"
-        spdxPackages[nonInventoryPackageName]["containedFiles"] = []
-        spdxPackages[nonInventoryPackageName]["SPDXID"] = "SPDXRef-Pkg-" + nonInventoryPackageName
-        spdxPackages[nonInventoryPackageName]["PackageFileName"] = nonInventoryPackageName
-        spdxPackages[nonInventoryPackageName]["DocumentName"] =  projectName + "-" + nonInventoryPackageName.replace(" ", "_")
-        spdxPackages[nonInventoryPackageName]["DocumentNamespace"] = DocumentNamespaceBase + "/" + projectName + "-" + nonInventoryPackageName.replace(" ", "_") + "-" + str(uuid.uuid1())
-        spdxPackages[nonInventoryPackageName]["PackageDownloadLocation"] = "NOASSERTION"
-        spdxPackages[nonInventoryPackageName]["PackageLicenseConcluded"] = "NOASSERTION"
-        spdxPackages[nonInventoryPackageName]["PackageLicenseDeclared"] = "NOASSERTION"
+        if includeUnassociatedFiles:
+            nonInventoryPackageName = "OtherFiles"
+            spdxPackages[nonInventoryPackageName] ={}
+            spdxPackages[nonInventoryPackageName]["reportName"] = str(projectID)  + "-" + nonInventoryPackageName + ".spdx"
+            spdxPackages[nonInventoryPackageName]["packageName"] = nonInventoryPackageName
+            spdxPackages[nonInventoryPackageName]["packageVersion"] = "N/A"
+            spdxPackages[nonInventoryPackageName]["containedFiles"] = []
+            spdxPackages[nonInventoryPackageName]["SPDXID"] = "SPDXRef-Pkg-" + nonInventoryPackageName
+            spdxPackages[nonInventoryPackageName]["PackageFileName"] = nonInventoryPackageName
+            spdxPackages[nonInventoryPackageName]["DocumentName"] =  projectName + "-" + nonInventoryPackageName.replace(" ", "_")
+            spdxPackages[nonInventoryPackageName]["DocumentNamespace"] = DocumentNamespaceBase + "/" + projectName + "-" + nonInventoryPackageName.replace(" ", "_") + "-" + str(uuid.uuid1())
+            spdxPackages[nonInventoryPackageName]["PackageDownloadLocation"] = "NOASSERTION"
+            spdxPackages[nonInventoryPackageName]["PackageLicenseConcluded"] = "NOASSERTION"
+            spdxPackages[nonInventoryPackageName]["PackageLicenseDeclared"] = "NOASSERTION"
     
         ############################################################################
         # Dictionary to contain all of the file specific data
@@ -260,7 +262,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                 inInventory = "false"
 
             # Is the file already in inventory or do we need to deal wtih it?
-            if inInventory == "false":
+            if inInventory == "false" and includeUnassociatedFiles:
                 try:
                     spdxPackages[nonInventoryPackageName]["containedFiles"].append(FileName)
                 except:
@@ -316,9 +318,10 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
 
             fileDetails[uniqueFileID] = scannedFileDetails
         # Are there any files not asscoaited to an inventory item?
-        if not len(spdxPackages[nonInventoryPackageName]["containedFiles"]):
-            logger.debug("All files are asscoiated to at least one inventory item")
-            spdxPackages.pop(nonInventoryPackageName)
+        if includeUnassociatedFiles:
+            if not len(spdxPackages[nonInventoryPackageName]["containedFiles"]):
+                logger.debug("All files are asscoiated to at least one inventory item")
+                spdxPackages.pop(nonInventoryPackageName)
 
         # Merge the results to map each package (inventory item) with the assocaited files
         for package in spdxPackages:
