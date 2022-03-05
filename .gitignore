@@ -1,5 +1,5 @@
 venv
-settings.json
+.vscode
 *.log
 *.spdx
 *.pyc
