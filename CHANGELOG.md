@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.7] - 2022-05-23
+### Added
+- Registration updates
+
 ## [1.2.6] - 2022-03-05
 ### Added
 - Option to include unassociated files
