@@ -21,6 +21,7 @@ import CodeInsight_RESTAPIs.project.get_project_information
 
 import SPDX_license_mappings # To map evidence to an SPDX license name
 import filetype_mappings
+import purl
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +89,8 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
             # Seperate out Inventory vs WIP or License Only items
             if inventoryType == "Component":
 
+                purlString = purl.get_purl_string(inventoryItem, baseURL, authToken)
+
                 componentName = inventoryItem["componentName"].replace(" ", "_")
                 versionName = inventoryItem["componentVersionName"].replace(" ", "_").replace('/', '')
                 inventoryID = inventoryItem["id"]
@@ -114,6 +117,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                 spdxPackages[packageName]["PackageDownloadLocation"] = inventoryItem["componentUrl"]
                 spdxPackages[packageName]["PackageComment"] = PackageComment
                 spdxPackages[packageName]["containedFiles"] = filesInInventory
+                spdxPackages[packageName]["purlString"] = purlString
 
                 ##########################################
                 # Manage Concluded licenes
