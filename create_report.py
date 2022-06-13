@@ -125,16 +125,16 @@ def main():
 		reportData = report_data.gather_data_for_report(baseURL, projectID, authToken, reportName, reportVersion, reportOptions)
 		print("    Report data has been collected")
 		reportData["fileNameTimeStamp"] = fileNameTimeStamp
-		projectName = reportData["projectName"]
-		projectNameForFile = re.sub(r"[^a-zA-Z0-9]+", '-', projectName )  # Remove special characters from project name for artifacts
+		applicationName = reportData["applicationName"]
+		applicationNameForFile = re.sub(r"[^a-zA-Z0-9]+", '-', applicationName )  # Remove special characters from project name for artifacts
 
 		# Are there child projects involved?  If so have the artifact file names reflect this fact
 		if len(reportData["projectList"])==1:
-			reportFileNameBase = projectNameForFile + "-" + str(projectID) + "-" + reportName.replace(" ", "_") + "-" + fileNameTimeStamp
+			reportFileNameBase = applicationNameForFile + "-" + str(projectID) + "-" + reportName.replace(" ", "_") + "-" + fileNameTimeStamp
 		else:
-			reportFileNameBase = projectNameForFile + "-with-children-" + str(projectID) + "-" + reportName.replace(" ", "_") + "-" + fileNameTimeStamp
+			reportFileNameBase = applicationNameForFile + "-with-children-" + str(projectID) + "-" + reportName.replace(" ", "_") + "-" + fileNameTimeStamp
 
-		reportData["projectNameForFile"] = projectNameForFile
+		reportData["applicationNameForFile"] = applicationNameForFile
 		reportData["reportTimeStamp"] = datetime.strptime(fileNameTimeStamp, "%Y%m%d-%H%M%S").strftime("%B %d, %Y at %H:%M:%S")
 		reportData["reportFileNameBase"] = reportFileNameBase
 

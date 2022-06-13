@@ -17,6 +17,7 @@ import CodeInsight_RESTAPIs.project.get_project_inventory
 import CodeInsight_RESTAPIs.project.get_scanned_files
 import CodeInsight_RESTAPIs.project.get_project_evidence
 import CodeInsight_RESTAPIs.project.get_child_projects
+import CodeInsight_RESTAPIs.project.get_project_information
 
 import SPDX_license_mappings # To map evidence to an SPDX license name
 import filetype_mappings
@@ -33,6 +34,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
 
     projectList = [] # List to hold parent/child details for report
     projectData = {} # Create a dictionary containing the project level summary data using projectID as keys
+    applicationDetails = {} # Dictionary to allow a project to be mapped to an application name/version
 
     # Get the list of parent/child projects start at the base project
     projectHierarchy = CodeInsight_RESTAPIs.project.get_child_projects.get_child_projects_recursively(baseURL, projectID, authToken)
@@ -52,6 +54,11 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
     nodeDetails["projectLink"] = baseURL + "/codeinsight/FNCI#myprojectdetails/?id=" + str(projectHierarchy["id"]) + "&tab=projectInventory"
 
     projectList.append(nodeDetails)
+    
+    applicationDetails[projectName] = determine_application_details(baseURL, projectName, projectID, authToken)
+    applicationName = applicationDetails[projectName]["applicationNameVersion"]
+    if applicationName == "":
+        applicationName = projectName
 
     if includeChildProjects == "true":
         projectList = create_project_hierarchy(projectHierarchy, projectID, projectList, baseURL)
@@ -181,6 +188,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
 
         # Collect the copyright/license data per file and create dict based on 
         projectEvidenceDetails = CodeInsight_RESTAPIs.project.get_project_evidence.get_project_evidence(baseURL, projectID, authToken)
+ 
 
         # Dictionary to contain all of the file specific data
         fileEvidence = {}
@@ -368,6 +376,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
     reportData = {}
     reportData["reportName"] = reportName
     reportData["projectName"] =  projectHierarchy["name"]
+    reportData["applicationName"] = applicationName
     reportData["projectID"] = projectHierarchy["id"]
     reportData["projectList"] = projectList
     reportData["reportVersion"] = reportVersion
@@ -399,3 +408,71 @@ def create_project_hierarchy(project, parentID, projectList, baseURL):
     return projectList
 
 
+
+#----------------------------------------------#
+def determine_application_details(baseURL, projectName, projectID, authToken):
+    logger.debug("Entering determine_application_details.")
+    # Create a application name for the report if the custom fields are populated
+    # Default values
+    applicationName = projectName
+    applicationVersion = ""
+    applicationPublisher = ""
+    applicationDetailsString = ""
+
+    projectInformation = CodeInsight_RESTAPIs.project.get_project_information.get_project_information_summary(baseURL, projectID, authToken)
+
+    # Project level custom fields added in 2022R1
+    if "customFields" in projectInformation:
+        customFields = projectInformation["customFields"]
+
+        # See if the custom project fields were propulated for this project
+        for customField in customFields:
+
+            # Is there the reqired custom field available?
+            if customField["fieldLabel"] == "Application Name":
+                if customField["value"]:
+                    applicationName = customField["value"]
+
+            # Is the custom version field available?
+            if customField["fieldLabel"] == "Application Version":
+                if customField["value"]:
+                    applicationVersion = customField["value"]     
+
+            # Is the custom Publisher field available?
+            if customField["fieldLabel"] == "Application Publisher":
+                if customField["value"]:
+                    applicationPublisher = customField["value"]    
+
+
+
+    # Join the custom values to create the application name for the report artifacts
+    if applicationName != projectName:
+        if applicationVersion != "":
+            applicationNameVersion = applicationName + " - " + applicationVersion
+        else:
+            applicationNameVersion = applicationName
+    else:
+        applicationNameVersion = projectName
+
+    if applicationPublisher != "":
+        applicationDetailsString += "Publisher: " + applicationPublisher + " | "
+
+    # This will either be the project name or the supplied application name
+    applicationDetailsString += "Application: " + applicationName + " | "
+
+    if applicationVersion != "":
+        applicationDetailsString += "Version: " + applicationVersion
+    else:
+        # Rip off the  | from the end of the string if the version was not there
+        applicationDetailsString = applicationDetailsString[:-3]
+
+    applicationDetails = {}
+    applicationDetails["applicationName"] = applicationName
+    applicationDetails["applicationVersion"] = applicationVersion
+    applicationDetails["applicationPublisher"] = applicationPublisher
+    applicationDetails["applicationNameVersion"] = applicationNameVersion
+    applicationDetails["applicationDetailsString"] = applicationDetailsString
+
+    logger.info("    applicationDetails: %s" %applicationDetails)
+
+    return applicationDetails
