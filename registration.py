@@ -64,9 +64,10 @@ if adminAuthToken == "UPDATEME" or baseURL == "UPDATEME":
 
 #####################################################################################################
 #  Report Details
-reportName = "SPDX Report"  # What is the name to be shown within Code Insight?
+reportName = "SBOM Report - SPDX"  # What is the name to be shown within Code Insight?
 enableProjectPickerValue = "false"   # true if a second project can be used within this report
 reportOptions = []
+
 reportOption = {}
 reportOption["name"] = "includeChildProjects"
 reportOption["label"] = "Include child project data? (True/False)"
