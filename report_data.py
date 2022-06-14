@@ -35,7 +35,6 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
 
     projectList = [] # List to hold parent/child details for report
     projectData = {} # Create a dictionary containing the project level summary data using projectID as keys
-    applicationDetails = {} # Dictionary to allow a project to be mapped to an application name/version
 
     # Get the list of parent/child projects start at the base project
     projectHierarchy = CodeInsight_RESTAPIs.project.get_child_projects.get_child_projects_recursively(baseURL, projectID, authToken)
@@ -44,7 +43,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
     SPDXVersion = "SPDX-2.2"
     DataLicense = "CC0-1.0"
     DocumentNamespaceBase = "http:/spdx.org/spdxdocs"  # This shold be modified for each Code Insight instance
-    Creator = "Code Insight"
+    Creator = "Revenera Code Insight 2022"  # TODO - Get value from API
 
     # Create a list of project data sorted by the project name at each level for report display  
     # Add details for the parent node
@@ -56,10 +55,9 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
 
     projectList.append(nodeDetails)
     
-    applicationDetails[projectName] = determine_application_details(baseURL, projectName, projectID, authToken)
-    applicationName = applicationDetails[projectName]["applicationNameVersion"]
-    if applicationName == "":
-        applicationName = projectName
+    applicationDetails = determine_application_details(baseURL, projectName, projectID, authToken)
+    applicationDocumentString = applicationDetails["applicationDocumentString"]
+
 
     if includeChildProjects == "true":
         projectList = create_project_hierarchy(projectHierarchy, projectID, projectList, baseURL)
@@ -364,8 +362,8 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
             spdxPackages[package]["PackageLicenseInfoFromFiles"] = set(fileLicenses)
 
         projectData[projectID]["spdxPackages"] = spdxPackages
-        projectData[projectID]["DocumentName"] = projectName.replace(" ", "_") + "-" + str(projectID)
-        projectData[projectID]["DocumentNamespace"] = DocumentNamespaceBase + "/" + projectName.replace(" ", "_") + "-" + str(projectID) + "-" + str(uuid.uuid1())
+        projectData[projectID]["DocumentName"] = applicationDocumentString.replace(" ", "_") + "-" + str(projectID)
+        projectData[projectID]["DocumentNamespace"] = DocumentNamespaceBase + "/" + applicationDocumentString.replace(" ", "_") + "-" + str(projectID) + "-" + str(uuid.uuid1())
 
         # Was there any files that did not contains SHA1 details?
         projectData[projectID]["invalidSHA1"] = invalidSHA1
@@ -379,12 +377,13 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
 
     reportData = {}
     reportData["reportName"] = reportName
-    reportData["projectName"] =  projectHierarchy["name"]
-    reportData["applicationName"] = applicationName
+    reportData["projectName"] =  projectName
+    reportData["applicationDocumentString"] =  applicationDocumentString
     reportData["projectID"] = projectHierarchy["id"]
     reportData["projectList"] = projectList
     reportData["reportVersion"] = reportVersion
     reportData["SPDXData"] = SPDXData
+    reportData["applicationDetails"]=applicationDetails
 
     return reportData
 
@@ -421,7 +420,7 @@ def determine_application_details(baseURL, projectName, projectID, authToken):
     applicationName = projectName
     applicationVersion = ""
     applicationPublisher = ""
-    applicationDetailsString = ""
+    applicationDocumentString = ""
 
     projectInformation = CodeInsight_RESTAPIs.project.get_project_information.get_project_information_summary(baseURL, projectID, authToken)
 
@@ -459,13 +458,13 @@ def determine_application_details(baseURL, projectName, projectID, authToken):
         applicationNameVersion = projectName
 
     if applicationPublisher != "":
-        applicationDetailsString += "Publisher: " + applicationPublisher + " | "
+        applicationDocumentString = applicationPublisher
 
     # This will either be the project name or the supplied application name
-    applicationDetailsString += "Application: " + applicationName + " | "
+    applicationDocumentString += "_" + applicationName
 
     if applicationVersion != "":
-        applicationDetailsString += "Version: " + applicationVersion
+        applicationDocumentString += "_" + applicationVersion
     else:
         # Rip off the  | from the end of the string if the version was not there
         applicationDetailsString = applicationDetailsString[:-3]
@@ -475,7 +474,7 @@ def determine_application_details(baseURL, projectName, projectID, authToken):
     applicationDetails["applicationVersion"] = applicationVersion
     applicationDetails["applicationPublisher"] = applicationPublisher
     applicationDetails["applicationNameVersion"] = applicationNameVersion
-    applicationDetails["applicationDetailsString"] = applicationDetailsString
+    applicationDetails["applicationDocumentString"] = applicationDocumentString
 
     logger.info("    applicationDetails: %s" %applicationDetails)
 
