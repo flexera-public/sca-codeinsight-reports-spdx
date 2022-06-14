@@ -12,6 +12,7 @@ The `sca-codeinsight-reports-spdx` repository is a example report for Revenera's
 |1.0.x |2021R2  |
 |1.1.x |2021R3  |
 |1.2.x |2021R4  |
+|1.3.x |2022R1  |
 
 **Repository Cloning**
 
@@ -82,6 +83,9 @@ This report is executed directly from within Revenera's Code Insight product. Fr
 - Including child projects (True/False) - Determine if child project data will be included or not.
 - Including files not associated with inventory items (True/False) - Should files not associated with inventory items be included in the report
 
+The generated reports will utilize the following Project Custom Fields if available
+- Application Name
+- Application Version
 
 The Code Insight Report Framework will provide the following to the report when initiated:
 
