@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.1] - 2022-06-15
+### Fixed
+- SHA1 fix
+
 ## [1.3.0] - 2022-06-14
 ### Added
 - Purl values
