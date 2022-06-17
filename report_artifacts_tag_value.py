@@ -70,6 +70,7 @@ def generate_tag_value_spdx_report(reportData):
             report_ptr.write("PackageName: %s\n" %packageName)
             report_ptr.write("PackageVersion: %s\n" %packageData["packageVersion"])
             report_ptr.write("SPDXID: %s\n" %(packageData["SPDXID"]))
+            report_ptr.write("PackageHomePage: %s\n" %packageData["PackageHomePage"])
             report_ptr.write("PackageDownloadLocation: %s\n" %packageData["PackageDownloadLocation"])
             report_ptr.write("PackageVerificationCode: %s\n" %packageData["PackageVerificationCode"])
 
@@ -80,7 +81,9 @@ def generate_tag_value_spdx_report(reportData):
 
             report_ptr.write("PackageLicenseDeclared: %s\n" %packageData["PackageLicenseDeclared"])
             report_ptr.write("PackageCopyrightText: NOASSERTION\n")
-            report_ptr.write("ExternalRef: PACKAGE-MANGER purl %s\n" %packageData["purlString"])
+
+            if "@" in packageData["purlString"]:
+                report_ptr.write("ExternalRef: PACKAGE-MANAGER purl %s\n" %packageData["purlString"])
 
             report_ptr.write("\n")
             report_ptr.write("##------------------------------\n")
@@ -90,7 +93,7 @@ def generate_tag_value_spdx_report(reportData):
 
             for file in packageFiles:
                 report_ptr.write("## ----------------------- File -----------------------\n")
-                report_ptr.write("FileName: %s\n" %file)
+                report_ptr.write("FileName: ./%s\n" %file)
                 report_ptr.write("SPDXID: %s\n" %packageFiles[file]["SPDXID"])
                 report_ptr.write("FileType: %s\n" %packageFiles[file]["FileType"])
                 report_ptr.write("FileChecksum: SHA1: %s\n" %packageFiles[file]["fileSHA1"])

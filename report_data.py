@@ -112,7 +112,13 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                 spdxPackages[packageName]["PackageFileName"] = packageName
                 spdxPackages[packageName]["DocumentName"] =  projectName + "-" + packageName.replace(" ", "_")
                 spdxPackages[packageName]["DocumentNamespace"] = DocumentNamespaceBase + "/" + projectName + "-" + packageName.replace(" ", "_") + "-" + str(uuid.uuid1())
-                spdxPackages[packageName]["PackageDownloadLocation"] = inventoryItem["componentUrl"]
+                
+                if inventoryItem["componentUrl"] != "" or inventoryItem["componentUrl"] is not None:
+                    spdxPackages[packageName]["PackageHomePage"] = inventoryItem["componentUrl"]
+                else:
+                    spdxPackages[packageName]["PackageHomePage"] = "NOASSERTION"
+                
+                spdxPackages[packageName]["PackageDownloadLocation"] = "NOASSERTION"
                 spdxPackages[packageName]["PackageComment"] = PackageComment
                 spdxPackages[packageName]["containedFiles"] = filesInInventory
                 spdxPackages[packageName]["purlString"] = purlString
