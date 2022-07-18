@@ -186,6 +186,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
             spdxPackages[nonInventoryPackageName]["PackageFileName"] = nonInventoryPackageName
             spdxPackages[nonInventoryPackageName]["DocumentName"] =  projectName + "-" + nonInventoryPackageName.replace(" ", "_")
             spdxPackages[nonInventoryPackageName]["DocumentNamespace"] = DocumentNamespaceBase + "/" + projectName + "-" + nonInventoryPackageName.replace(" ", "_") + "-" + str(uuid.uuid1())
+            spdxPackages[nonInventoryPackageName]["PackageHomePage"] = "NOASSERTION"
             spdxPackages[nonInventoryPackageName]["PackageDownloadLocation"] = "NOASSERTION"
             spdxPackages[nonInventoryPackageName]["PackageLicenseConcluded"] = "NOASSERTION"
             spdxPackages[nonInventoryPackageName]["PackageLicenseDeclared"] = "NOASSERTION"
