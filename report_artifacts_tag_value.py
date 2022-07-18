@@ -82,8 +82,9 @@ def generate_tag_value_spdx_report(reportData):
             report_ptr.write("PackageLicenseDeclared: %s\n" %packageData["PackageLicenseDeclared"])
             report_ptr.write("PackageCopyrightText: NOASSERTION\n")
 
-            if "@" in packageData["purlString"]:
-                report_ptr.write("ExternalRef: PACKAGE-MANAGER purl %s\n" %packageData["purlString"])
+            if packageName != "OtherFiles":
+                if "@" in packageData["purlString"]:
+                    report_ptr.write("ExternalRef: PACKAGE-MANAGER purl %s\n" %packageData["purlString"])
 
             report_ptr.write("\n")
             report_ptr.write("##------------------------------\n")
