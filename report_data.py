@@ -306,10 +306,8 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
 
             # See if there is a SHA1 value and if not create one from the MD5 value
             if "fileSHA1" in scannedFile:
-                invalidSHA1 = False
                 fileSHA1 = scannedFile["fileSHA1"]
             else:
-                invalidSHA1 = True
                 logger.warning("        %s does not have a SHA1 calculation" %FileName)
                 fileSHA1 = hashlib.sha1(scannedFile["fileMD5"].encode('utf-8')).hexdigest()
 
@@ -368,9 +366,6 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
         projectData[projectID]["spdxPackages"] = spdxPackages
         projectData[projectID]["DocumentName"] = applicationDocumentString.replace(" ", "_") + "-" + str(projectID)
         projectData[projectID]["DocumentNamespace"] = DocumentNamespaceBase + "/" + applicationDocumentString.replace(" ", "_") + "-" + str(projectID) + "-" + str(uuid.uuid1())
-
-        # Was there any files that did not contains SHA1 details?
-        projectData[projectID]["invalidSHA1"] = invalidSHA1
 
     SPDXData = {}
     SPDXData["SPDXVersion"] = SPDXVersion
