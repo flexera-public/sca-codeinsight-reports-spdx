@@ -48,7 +48,11 @@ def get_purl_string(inventoryItem, baseURL, authToken):
         else:
             purlRepo = forge
 
-        purlName = componentName
+        if forge == "pypi":
+            purlName = componentName.replace("_", "-")
+        else:
+            purlName = componentName
+
         purlVersion = componentVersionName
         purlNameSpace = ""
 
@@ -97,7 +101,7 @@ def get_purl_string(inventoryItem, baseURL, authToken):
         purlNameSpace = ""
         
         purlVersion = componentVersionName  
-        purlName = componentName.replace("@", "%40")
+        purlName = componentName
 
     elif forge in ["packagist"]:
 
