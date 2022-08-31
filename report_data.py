@@ -126,31 +126,31 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                 ##########################################
                 # Manage Concluded licenes
                 logger.info("    Manage Concluded/Possible Licenses")
-                PackageLicenseConcluded = []
+                PackageLicenseDeclared = []
                 try:
                     possibleLicenses = inventoryItem["possibleLicenses"]
                     for license in possibleLicenses:
                         possibleLicenseSPDXIdentifier = license["licenseSPDXIdentifier"]
                         if possibleLicenseSPDXIdentifier in SPDX_license_mappings.LICENSEMAPPINGS:
                             logger.info("        \"%s\" maps to SPDX ID \"%s\"" %(possibleLicenseSPDXIdentifier, SPDX_license_mappings.LICENSEMAPPINGS[possibleLicenseSPDXIdentifier]) )
-                            PackageLicenseConcluded.append(SPDX_license_mappings.LICENSEMAPPINGS[license["licenseSPDXIdentifier"]])
+                            PackageLicenseDeclared.append(SPDX_license_mappings.LICENSEMAPPINGS[license["licenseSPDXIdentifier"]])
                             
                         else:
                             # There was not a valid SPDX ID 
-                            logger.warning("        \"%s\" is not a valid SPDX identifier. - Using NOASSERTION." %(possibleLicenseSPDXIdentifier))
-                            PackageLicenseConcluded.append("NOASSERTION")           
+                            logger.warning("        \"%s\" is not a valid SPDX identifier. - Using LicenseRef." %(possibleLicenseSPDXIdentifier))
+                            PackageLicenseDeclared.append("LicenseRef-%s" %possibleLicenseSPDXIdentifier.replace(" ", "-"))           
                 except:
-                    PackageLicenseConcluded.append(["NOASSERTION"])    
+                    PackageLicenseDeclared.append(["NOASSERTION"])    
 
-                if len(PackageLicenseConcluded) == 0:
-                    PackageLicenseConcluded = "NOASSERTION"
-                elif len(PackageLicenseConcluded) == 1:
-                    PackageLicenseConcluded = PackageLicenseConcluded[0]
+                if len(PackageLicenseDeclared) == 0:
+                    PackageLicenseDeclared = "NOASSERTION"
+                elif len(PackageLicenseDeclared) == 1:
+                    PackageLicenseDeclared = PackageLicenseDeclared[0]
                 else:
-                    PackageLicenseConcluded = "(" + ' OR '.join(sorted(PackageLicenseConcluded)) + ")"
+                    PackageLicenseDeclared = "(" + ' OR '.join(sorted(PackageLicenseDeclared)) + ")"
 
 
-                spdxPackages[packageName]["PackageLicenseConcluded"] = PackageLicenseConcluded
+                spdxPackages[packageName]["PackageLicenseDeclared"] = PackageLicenseDeclared
 
                 ##########################################
                 # Manage Declared license
@@ -160,13 +160,13 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                 # Need to make sure that there is a valid SPDX license mapping
                 if selectedLicenseSPDXIdentifier in SPDX_license_mappings.LICENSEMAPPINGS:
                     logger.info("        \"%s\" maps to SPDX ID: \"%s\"" %(selectedLicenseSPDXIdentifier, SPDX_license_mappings.LICENSEMAPPINGS[selectedLicenseSPDXIdentifier] ))
-                    PackageLicenseDeclared = (SPDX_license_mappings.LICENSEMAPPINGS[selectedLicenseSPDXIdentifier])
+                    PackageLicenseConcluded = (SPDX_license_mappings.LICENSEMAPPINGS[selectedLicenseSPDXIdentifier])
                 else:
                     # There was not a valid SPDX license name returned
                     logger.warning("        \"%s\" is not a valid SPDX identifier. - Using NOASSERTION." %(selectedLicenseSPDXIdentifier))
-                    PackageLicenseDeclared = "NOASSERTION"
+                    PackageLicenseConcluded = "NOASSERTION"
                        
-                spdxPackages[packageName]["PackageLicenseDeclared"] = PackageLicenseDeclared
+                spdxPackages[packageName]["PackageLicenseConcluded"] = PackageLicenseConcluded
                 
             else:
                 # This is a WIP or License only item so take the files assocated here and include them in
