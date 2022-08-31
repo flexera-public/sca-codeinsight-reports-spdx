@@ -138,7 +138,9 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                         else:
                             # There was not a valid SPDX ID 
                             logger.warning("        \"%s\" is not a valid SPDX identifier. - Using LicenseRef." %(possibleLicenseSPDXIdentifier))
-                            PackageLicenseDeclared.append("LicenseRef-%s" %possibleLicenseSPDXIdentifier.replace(" ", "-"))           
+                            possibleLicenseSPDXIdentifier = possibleLicenseSPDXIdentifier.split("(", 1)[0][:-1]  # If there is a ( in string remove everything after and space
+                            possibleLicenseSPDXIdentifier = possibleLicenseSPDXIdentifier.replace(" ", "-") # Replace space wtih dash
+                            PackageLicenseDeclared.append("LicenseRef-%s" %possibleLicenseSPDXIdentifier)           
                 except:
                     PackageLicenseDeclared.append(["NOASSERTION"])    
 
