@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.3] - 2022-08-31
+### Fixed
+- Fix declared vs concluded license
+
 ## [1.3.2] - 2022-07-18
 ### Fixed
 - Misc purl value fixes
