@@ -6,9 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.3.3] - 2022-08-31
+## [2.0.1] - 2022-09-01
 ### Fixed
-- Fix declared vs concluded license
+- Fix declared vs concluded license determination
+- Support non SPDX licenses with LicenseRef
+- File level licese updates
+- Special character replacement to avoid warnings
+- NPM and pypi purl updates
 
 ## [1.3.2] - 2022-07-18
 ### Fixed
