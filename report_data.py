@@ -13,6 +13,7 @@ import os
 import hashlib
 import uuid
 import mimetypes
+import re
 import CodeInsight_RESTAPIs.project.get_project_inventory
 import CodeInsight_RESTAPIs.project.get_scanned_files
 import CodeInsight_RESTAPIs.project.get_project_evidence
@@ -89,8 +90,8 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
 
                 purlString = purl.get_purl_string(inventoryItem, baseURL, authToken)
 
-                componentName = inventoryItem["componentName"].replace(" ", "_")
-                versionName = inventoryItem["componentVersionName"].replace(" ", "_").replace('/', '')
+                componentName = re.sub('[^a-zA-Z0-9 \n\.]', '-', inventoryItem["componentName"]).lstrip('-') # Replace spec chars with dash
+                versionName = re.sub('[^a-zA-Z0-9 \n\.]', '-', inventoryItem["componentVersionName"]).lstrip('-')  # Replace spec chars with dash
                 inventoryID = inventoryItem["id"]
                 packageName = componentName + "-" + versionName + "-" + str(inventoryID)
 
@@ -105,13 +106,13 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
 
                 # Contains the deatils for the package/inventory item
                 spdxPackages[packageName] ={}
-                spdxPackages[packageName]["reportName"] = str(projectID) + "-" + packageName.replace(" ", "_") + ".spdx"
+                spdxPackages[packageName]["reportName"] = str(projectID) + "-" + packageName + ".spdx"
                 spdxPackages[packageName]["packageName"] = componentName
                 spdxPackages[packageName]["packageVersion"] = versionName
                 spdxPackages[packageName]["SPDXID"] = "SPDXRef-Pkg-" + packageName
                 spdxPackages[packageName]["PackageFileName"] = packageName
-                spdxPackages[packageName]["DocumentName"] =  projectName + "-" + packageName.replace(" ", "_")
-                spdxPackages[packageName]["DocumentNamespace"] = DocumentNamespaceBase + "/" + projectName + "-" + packageName.replace(" ", "_") + "-" + str(uuid.uuid1())
+                spdxPackages[packageName]["DocumentName"] =  projectName + "-" + packageName
+                spdxPackages[packageName]["DocumentNamespace"] = DocumentNamespaceBase + "/" + projectName + "-" + packageName + "-" + str(uuid.uuid1())
                 
                 if inventoryItem["componentUrl"] != "" or inventoryItem["componentUrl"] is not None:
                     spdxPackages[packageName]["PackageHomePage"] = inventoryItem["componentUrl"]
@@ -124,22 +125,28 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                 spdxPackages[packageName]["purlString"] = purlString
 
                 ##########################################
-                # Manage Concluded licenes
-                logger.info("    Manage Concluded/Possible Licenses")
+                # Manage Declared Licenses
+                logger.info("    Manage Declared/Possible Licenses")
                 PackageLicenseDeclared = []
                 try:
                     possibleLicenses = inventoryItem["possibleLicenses"]
                     for license in possibleLicenses:
+                        licenseName = license["licenseSPDXIdentifier"]
                         possibleLicenseSPDXIdentifier = license["licenseSPDXIdentifier"]
-                        if possibleLicenseSPDXIdentifier in SPDX_license_mappings.LICENSEMAPPINGS:
+
+                        if licenseName == "Public Domain":
+                            PackageLicenseDeclared.append("NONE")   
+
+                        elif possibleLicenseSPDXIdentifier in SPDX_license_mappings.LICENSEMAPPINGS:
                             logger.info("        \"%s\" maps to SPDX ID \"%s\"" %(possibleLicenseSPDXIdentifier, SPDX_license_mappings.LICENSEMAPPINGS[possibleLicenseSPDXIdentifier]) )
                             PackageLicenseDeclared.append(SPDX_license_mappings.LICENSEMAPPINGS[license["licenseSPDXIdentifier"]])
                             
                         else:
                             # There was not a valid SPDX ID 
-                            logger.warning("        \"%s\" is not a valid SPDX identifier. - Using LicenseRef." %(possibleLicenseSPDXIdentifier))
-                            possibleLicenseSPDXIdentifier = possibleLicenseSPDXIdentifier.split("(", 1)[0][:-1]  # If there is a ( in string remove everything after and space
-                            possibleLicenseSPDXIdentifier = possibleLicenseSPDXIdentifier.replace(" ", "-") # Replace space wtih dash
+                            logger.warning("        \"%s\" is not a valid SPDX identifier for Declared License. - Using LicenseRef." %(possibleLicenseSPDXIdentifier))
+                            possibleLicenseSPDXIdentifier = possibleLicenseSPDXIdentifier.split("(", 1)[0].rstrip()  # If there is a ( in string remove everything after and space
+                            possibleLicenseSPDXIdentifier = re.sub('[^a-zA-Z0-9 \n\.]', '-', possibleLicenseSPDXIdentifier) # Replace spec chars with dash
+                            possibleLicenseSPDXIdentifier = possibleLicenseSPDXIdentifier.replace(" ", "-") # Replace space with dash
                             PackageLicenseDeclared.append("LicenseRef-%s" %possibleLicenseSPDXIdentifier)           
                 except:
                     PackageLicenseDeclared.append(["NOASSERTION"])    
@@ -149,24 +156,34 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                 elif len(PackageLicenseDeclared) == 1:
                     PackageLicenseDeclared = PackageLicenseDeclared[0]
                 else:
-                    PackageLicenseDeclared = "(" + ' OR '.join(sorted(PackageLicenseDeclared)) + ")"
+                    if "NONE" in PackageLicenseDeclared:
+                        PackageLicenseDeclared = "NONE"
+                    else:
+                        PackageLicenseDeclared = "(" + ' OR '.join(sorted(PackageLicenseDeclared)) + ")"
 
 
                 spdxPackages[packageName]["PackageLicenseDeclared"] = PackageLicenseDeclared
 
                 ##########################################
-                # Manage Declared license
-                logger.info("    Manage Declared License")
+                # Manage Concluded license
+                logger.info("    Manage Concluded License")
+
                 selectedLicenseSPDXIdentifier = inventoryItem["selectedLicenseSPDXIdentifier"]
+                selectedLicenseName = inventoryItem["selectedLicenseName"]
 
                 # Need to make sure that there is a valid SPDX license mapping
-                if selectedLicenseSPDXIdentifier in SPDX_license_mappings.LICENSEMAPPINGS:
+                if selectedLicenseName == "Public Domain":
+                    PackageLicenseConcluded = "NONE"
+                elif selectedLicenseSPDXIdentifier in SPDX_license_mappings.LICENSEMAPPINGS:
                     logger.info("        \"%s\" maps to SPDX ID: \"%s\"" %(selectedLicenseSPDXIdentifier, SPDX_license_mappings.LICENSEMAPPINGS[selectedLicenseSPDXIdentifier] ))
                     PackageLicenseConcluded = (SPDX_license_mappings.LICENSEMAPPINGS[selectedLicenseSPDXIdentifier])
                 else:
                     # There was not a valid SPDX license name returned
-                    logger.warning("        \"%s\" is not a valid SPDX identifier. - Using NOASSERTION." %(selectedLicenseSPDXIdentifier))
-                    PackageLicenseConcluded = "NOASSERTION"
+                    logger.warning("        \"%s\" is not a valid SPDX identifier for Concluded License. - Using LicenseRef." %(possibleLicenseSPDXIdentifier))
+                    selectedLicenseSPDXIdentifier = selectedLicenseSPDXIdentifier.split("(", 1)[0].rstrip()  # If there is a ( in string remove everything after and space
+                    selectedLicenseSPDXIdentifier = re.sub('[^a-zA-Z0-9 \n\.]', '-', selectedLicenseSPDXIdentifier) # Replace spec chars with dash
+                    selectedLicenseSPDXIdentifier = selectedLicenseSPDXIdentifier.replace(" ", "-") # Replace space with dash
+                    PackageLicenseConcluded = "LicenseRef-%s" %selectedLicenseSPDXIdentifier 
                        
                 spdxPackages[packageName]["PackageLicenseConcluded"] = PackageLicenseConcluded
                 
@@ -219,28 +236,40 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
             ##########################################
             # Manage File Level licenses
             if licenseEvidenceFound:
-                logger.info("            License evidience discovered")
-                # The license evidience is not in SPDX form so consolidate and map       
+                logger.info("            License evidence discovered")
+                # The license evidence is not in SPDX form so consolidate and map       
                 for index, licenseEvidence in enumerate(licenseEvidenceFound):
-                    if licenseEvidence in SPDX_license_mappings.LICENSEMAPPINGS:
+                    if licenseEvidence == "Public Domain":
+                        logger.info("Skipping Public Domain")
+
+                    elif licenseEvidence in SPDX_license_mappings.LICENSEMAPPINGS:
                         licenseEvidenceFound[index] = SPDX_license_mappings.LICENSEMAPPINGS[licenseEvidence]
                         logger.info("                \"%s\" maps to SPDX ID: \"%s\"" %(licenseEvidence, SPDX_license_mappings.LICENSEMAPPINGS[licenseEvidence] ))
                     else:
-                        logger.warning("                File contains '%s' which is not a valid SPDX ID. - Using NOASSERTION." %(licenseEvidence))
-
-                        licenseEvidenceFound[index]  = "NOASSERTION"
+                        # There was not a valid SPDX license name returned
+                        logger.warning("        \"%s\" is not a valid SPDX identifier for file level license. - Using LicenseRef." %(licenseEvidence))
+                        licenseEvidence = licenseEvidence.split("(", 1)[0].rstrip()  # If there is a ( in string remove everything after and space
+                        licenseEvidence = re.sub('[^a-zA-Z0-9 \n\.]', '-', licenseEvidence) # Replace spec chars with dash
+                        licenseEvidence = licenseEvidence.replace(" ", "-") # Replace space with dash
+                        licenseEvidenceFound[index]  = "LicenseRef-%s" %licenseEvidence 
             
                 licenseEvidenceFound = licenseEvidenceFound  
             else:
-                logger.info("            No license evidience discovered")
-                licenseEvidenceFound = ["NONE"]
+                logger.info("            No license evidence discovered")
+
+            # Remove duplicates
+            licenseEvidenceFound = sorted(list(dict.fromkeys(licenseEvidenceFound)))
+            
+            # if there is no file license evidence then...
+            if not len(licenseEvidenceFound):
+                licenseEvidenceFound = ["NOASSERTION"]
 
             ##########################################
             # Manage File Level Copyrights
             if copyrightEvidenceFound:
-                logger.info("            Copyright evidience discovered")
+                logger.info("            Copyright evidence discovered")
             else:
-                logger.info("            No copyright evidience discovered")
+                logger.info("            No copyright evidence discovered")
                 copyrightEvidenceFound = ["NONE"]
 
             fileEvidence[uniqueFileID] = {}
@@ -364,7 +393,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
             # Create a hash of the file hashes for PackageVerificationCode 
             stringHash = ''.join(sorted(fileHashes))
             spdxPackages[package]["PackageVerificationCode"] = (hashlib.sha1(stringHash.encode('utf-8'))).hexdigest()
-            spdxPackages[package]["PackageLicenseInfoFromFiles"] = set(fileLicenses)
+            spdxPackages[package]["PackageLicenseInfoFromFiles"] = sorted(set(fileLicenses))
 
         projectData[projectID]["spdxPackages"] = spdxPackages
         projectData[projectID]["DocumentName"] = applicationDocumentString.replace(" ", "_") + "-" + str(projectID)
