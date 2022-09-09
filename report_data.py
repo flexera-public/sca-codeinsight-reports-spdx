@@ -384,16 +384,21 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
             fileHashes = []
             fileLicenses = []
 
-            for file in spdxPackages[package]["files"]:
-                # Create a list of SHA1 values to hash
-                fileHashes.append(spdxPackages[package]["files"][file]["fileSHA1"])
-                # Collect licesne info from files
-                fileLicenses.extend(spdxPackages[package]["files"][file]["LicenseInfoInFile"])
+            # Are there any files assocaited?
+            if len(spdxPackages[package]["files"]) > 0:
 
-            # Create a hash of the file hashes for PackageVerificationCode 
-            stringHash = ''.join(sorted(fileHashes))
-            spdxPackages[package]["PackageVerificationCode"] = (hashlib.sha1(stringHash.encode('utf-8'))).hexdigest()
-            spdxPackages[package]["PackageLicenseInfoFromFiles"] = sorted(set(fileLicenses))
+                for file in spdxPackages[package]["files"]:
+                    # Create a list of SHA1 values to hash
+                    fileHashes.append(spdxPackages[package]["files"][file]["fileSHA1"])
+                    # Collect licesne info from files
+                    fileLicenses.extend(spdxPackages[package]["files"][file]["LicenseInfoInFile"])
+
+                # Create a hash of the file hashes for PackageVerificationCode 
+                stringHash = ''.join(sorted(fileHashes))
+                spdxPackages[package]["PackageVerificationCode"] = (hashlib.sha1(stringHash.encode('utf-8'))).hexdigest()
+                spdxPackages[package]["PackageLicenseInfoFromFiles"] = sorted(set(fileLicenses))
+            else:
+                logger.info("No files assocaited to package %s" %package)
 
         projectData[projectID]["spdxPackages"] = spdxPackages
         projectData[projectID]["DocumentName"] = applicationDocumentString.replace(" ", "_") + "-" + str(projectID)

@@ -72,13 +72,15 @@ def generate_tag_value_spdx_report(reportData):
             report_ptr.write("SPDXID: %s\n" %(packageData["SPDXID"]))
             report_ptr.write("PackageHomePage: %s\n" %packageData["PackageHomePage"])
             report_ptr.write("PackageDownloadLocation: %s\n" %packageData["PackageDownloadLocation"])
-            report_ptr.write("PackageVerificationCode: %s\n" %packageData["PackageVerificationCode"])
 
+            if "PackageVerificationCode" in packageData:
+                report_ptr.write("PackageVerificationCode: %s\n" %packageData["PackageVerificationCode"])
+
+            if "PackageLicenseInfoFromFiles" in packageData:
+                for licenseFromFile in packageData["PackageLicenseInfoFromFiles"]:
+                    report_ptr.write("PackageLicenseInfoFromFiles: %s\n" %licenseFromFile)
+                    
             report_ptr.write("PackageLicenseConcluded: %s\n" %packageData["PackageLicenseConcluded"])
-
-            for licenseFromFile in packageData["PackageLicenseInfoFromFiles"]:
-                report_ptr.write("PackageLicenseInfoFromFiles: %s\n" %licenseFromFile)
-
             report_ptr.write("PackageLicenseDeclared: %s\n" %packageData["PackageLicenseDeclared"])
             report_ptr.write("PackageCopyrightText: NOASSERTION\n")
 
@@ -86,28 +88,33 @@ def generate_tag_value_spdx_report(reportData):
                 if "@" in packageData["purlString"]:
                     report_ptr.write("ExternalRef: PACKAGE-MANAGER purl %s\n" %packageData["purlString"])
 
-            report_ptr.write("\n")
-            report_ptr.write("##------------------------------\n")
-            report_ptr.write("##  Package File Information\n")
-            report_ptr.write("##------------------------------\n")
-            report_ptr.write("\n")
+            # Are there any files in this package?
+            if len(packageFiles) > 0:
 
-            for file in packageFiles:
-                report_ptr.write("## ----------------------- File -----------------------\n")
-                report_ptr.write("FileName: ./%s\n" %file)
-                report_ptr.write("SPDXID: %s\n" %packageFiles[file]["SPDXID"])
-                report_ptr.write("FileType: %s\n" %packageFiles[file]["FileType"])
-                report_ptr.write("FileChecksum: SHA1: %s\n" %packageFiles[file]["fileSHA1"])
-                report_ptr.write("FileChecksum: MD5: %s\n" %packageFiles[file]["fileMD5"])
-                report_ptr.write("LicenseConcluded: %s\n" %packageFiles[file]["FileLicenseConcluded"])
-
-                for license in packageFiles[file]["LicenseInfoInFile"]:
-                    report_ptr.write("LicenseInfoInFile: %s\n" %license)
-                
-                for copyright in packageFiles[file]["FileCopyrightText"]:
-                    report_ptr.write("FileCopyrightText: %s\n" %copyright)
-                
                 report_ptr.write("\n")
+                report_ptr.write("##------------------------------\n")
+                report_ptr.write("##  Package File Information\n")
+                report_ptr.write("##------------------------------\n")
+                report_ptr.write("\n")
+
+                for file in packageFiles:
+                    report_ptr.write("## ----------------------- File -----------------------\n")
+                    report_ptr.write("FileName: ./%s\n" %file)
+                    report_ptr.write("SPDXID: %s\n" %packageFiles[file]["SPDXID"])
+                    report_ptr.write("FileType: %s\n" %packageFiles[file]["FileType"])
+                    report_ptr.write("FileChecksum: SHA1: %s\n" %packageFiles[file]["fileSHA1"])
+                    report_ptr.write("FileChecksum: MD5: %s\n" %packageFiles[file]["fileMD5"])
+                    report_ptr.write("LicenseConcluded: %s\n" %packageFiles[file]["FileLicenseConcluded"])
+
+                    for license in packageFiles[file]["LicenseInfoInFile"]:
+                        report_ptr.write("LicenseInfoInFile: %s\n" %license)
+                    
+                    for copyright in packageFiles[file]["FileCopyrightText"]:
+                        report_ptr.write("FileCopyrightText: %s\n" %copyright)
+                    
+                    report_ptr.write("\n")
+            else:
+                report_ptr.write("FilesAnalyzed: false\n")    
 
             report_ptr.write("\n")
             report_ptr.write("##------------------------------\n")
