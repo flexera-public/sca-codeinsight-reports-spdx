@@ -135,6 +135,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                         possibleLicenseSPDXIdentifier = license["licenseSPDXIdentifier"]
 
                         if licenseName == "Public Domain":
+                            logger.info("        Appending NONE to PackageLicenseDeclared for %s" %packageName)
                             PackageLicenseDeclared.append("NONE")   
 
                         elif possibleLicenseSPDXIdentifier in SPDX_license_mappings.LICENSEMAPPINGS:
@@ -173,6 +174,8 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
 
                 # Need to make sure that there is a valid SPDX license mapping
                 if selectedLicenseName == "Public Domain":
+                    logger.info("        Setting PackageLicenseConcluded to NONE for %s" %packageName)
+
                     PackageLicenseConcluded = "NONE"
                 elif selectedLicenseSPDXIdentifier in SPDX_license_mappings.LICENSEMAPPINGS:
                     logger.info("        \"%s\" maps to SPDX ID: \"%s\"" %(selectedLicenseSPDXIdentifier, SPDX_license_mappings.LICENSEMAPPINGS[selectedLicenseSPDXIdentifier] ))
@@ -240,8 +243,8 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                 # The license evidence is not in SPDX form so consolidate and map       
                 for index, licenseEvidence in enumerate(licenseEvidenceFound):
                     if licenseEvidence == "Public Domain":
-                        logger.info("Skipping Public Domain")
-
+                        logger.info("                Skipping Public Domain for %s" %filePath)
+                        del licenseEvidenceFound[index]  # Remove it from the list
                     elif licenseEvidence in SPDX_license_mappings.LICENSEMAPPINGS:
                         licenseEvidenceFound[index] = SPDX_license_mappings.LICENSEMAPPINGS[licenseEvidence]
                         logger.info("                \"%s\" maps to SPDX ID: \"%s\"" %(licenseEvidence, SPDX_license_mappings.LICENSEMAPPINGS[licenseEvidence] ))
