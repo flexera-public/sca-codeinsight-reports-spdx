@@ -240,23 +240,26 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
             # Manage File Level licenses
             if licenseEvidenceFound:
                 logger.info("            License evidence discovered")
+
+                # Remove duplicates and sort data
+                licenseEvidenceFound = sorted(list(dict.fromkeys(licenseEvidenceFound)))
+                # Remove Public Domain license if present
+                if  "Public Domain" in licenseEvidenceFound: 
+                    licenseEvidenceFound.remove("Public Domain")  
+
                 # The license evidence is not in SPDX form so consolidate and map       
                 for index, licenseEvidence in enumerate(licenseEvidenceFound):
-                    if licenseEvidence == "Public Domain":
-                        logger.info("                Skipping Public Domain for %s" %filePath)
-                        del licenseEvidenceFound[index]  # Remove it from the list
-                    elif licenseEvidence in SPDX_license_mappings.LICENSEMAPPINGS:
+                    if licenseEvidence in SPDX_license_mappings.LICENSEMAPPINGS:
                         licenseEvidenceFound[index] = SPDX_license_mappings.LICENSEMAPPINGS[licenseEvidence]
                         logger.info("                \"%s\" maps to SPDX ID: \"%s\"" %(licenseEvidence, SPDX_license_mappings.LICENSEMAPPINGS[licenseEvidence] ))
                     else:
                         # There was not a valid SPDX license name returned
-                        logger.warning("        \"%s\" is not a valid SPDX identifier for file level license. - Using LicenseRef." %(licenseEvidence))
+                        logger.warning("                \"%s\" is not a valid SPDX identifier for file level license. - Using LicenseRef." %(licenseEvidence))
                         licenseEvidence = licenseEvidence.split("(", 1)[0].rstrip()  # If there is a ( in string remove everything after and space
                         licenseEvidence = re.sub('[^a-zA-Z0-9 \n\.]', '-', licenseEvidence) # Replace spec chars with dash
                         licenseEvidence = licenseEvidence.replace(" ", "-") # Replace space with dash
                         licenseEvidenceFound[index]  = "LicenseRef-%s" %licenseEvidence 
-            
-                licenseEvidenceFound = licenseEvidenceFound  
+           
             else:
                 logger.info("            No license evidence discovered")
 
