@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.3] - 2022-10-03
+### Fixed
+- File level license fixes for Public Domain
+
 ## [2.0.2] - 2022-09-09
 ### Fixed
 - support packages without associated files
