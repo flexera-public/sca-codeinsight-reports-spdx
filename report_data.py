@@ -175,14 +175,15 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                 # Need to make sure that there is a valid SPDX license mapping
                 if selectedLicenseName == "Public Domain":
                     logger.info("        Setting PackageLicenseConcluded to NONE for %s" %packageName)
-
                     PackageLicenseConcluded = "NONE"
+                elif selectedLicenseName == "I don't know":
+                    PackageLicenseConcluded = "NOASSERTION"
                 elif selectedLicenseSPDXIdentifier in SPDX_license_mappings.LICENSEMAPPINGS:
                     logger.info("        \"%s\" maps to SPDX ID: \"%s\"" %(selectedLicenseSPDXIdentifier, SPDX_license_mappings.LICENSEMAPPINGS[selectedLicenseSPDXIdentifier] ))
                     PackageLicenseConcluded = (SPDX_license_mappings.LICENSEMAPPINGS[selectedLicenseSPDXIdentifier])
                 else:
                     # There was not a valid SPDX license name returned
-                    logger.warning("        \"%s\" is not a valid SPDX identifier for Concluded License. - Using LicenseRef." %(possibleLicenseSPDXIdentifier))
+                    logger.warning("        \"%s\" is not a valid SPDX identifier for Concluded License. - Using LicenseRef." %(selectedLicenseSPDXIdentifier))
                     selectedLicenseSPDXIdentifier = selectedLicenseSPDXIdentifier.split("(", 1)[0].rstrip()  # If there is a ( in string remove everything after and space
                     selectedLicenseSPDXIdentifier = re.sub('[^a-zA-Z0-9 \n\.]', '-', selectedLicenseSPDXIdentifier) # Replace spec chars with dash
                     selectedLicenseSPDXIdentifier = selectedLicenseSPDXIdentifier.replace(" ", "-") # Replace space with dash
