@@ -88,8 +88,6 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
             # Seperate out Inventory vs WIP or License Only items
             if inventoryType == "Component":
 
-                purlString = purl.get_purl_string(inventoryItem, baseURL, authToken)
-
                 componentName = re.sub('[^a-zA-Z0-9 \n\.]', '-', inventoryItem["componentName"]).lstrip('-') # Replace spec chars with dash
                 versionName = re.sub('[^a-zA-Z0-9 \n\.]', '-', inventoryItem["componentVersionName"]).lstrip('-')  # Replace spec chars with dash
                 inventoryID = inventoryItem["id"]
@@ -103,6 +101,14 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
 
                 logger.info("Processing %s" %(packageName))
                 filesInInventory = inventoryItem["filePaths"]
+
+                # Attempt to generate a purl string for the component
+                try:
+                    purlString = purl.get_purl_string(inventoryItem, baseURL, authToken)
+                except:
+                    logger.warning("Unable to create purl string for inventory item %s." %packageName)
+                    purlString = ""
+
 
                 # Contains the deatils for the package/inventory item
                 spdxPackages[packageName] ={}
