@@ -363,15 +363,16 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
             fileContainsEvidence = scannedFile["containsEvidence"]   
 
             if fileContainsEvidence:
-                scannedFileDetails["LicenseInfoInFile"] = []
-
-                if fileEvidence[uniqueFileID]["copyrightEvidenceFound"]:
+                # There is some sort of evidence in the file but is it what we need?
+                if "copyrightEvidenceFound" in fileEvidence[uniqueFileID]:
                     scannedFileDetails["FileCopyrightText"] = fileEvidence[uniqueFileID]["copyrightEvidenceFound"]
                 else:
                     scannedFileDetails["FileCopyrightText"] = ["NOASSERTION"]
 
-                if fileEvidence[uniqueFileID]["licenseEvidenceFound"]:
+                if "licenseEvidenceFound" in fileEvidence[uniqueFileID]:
                     scannedFileDetails["LicenseInfoInFile"] = fileEvidence[uniqueFileID]["licenseEvidenceFound"]
+                else:
+                    scannedFileDetails["LicenseInfoInFile"] = []
 
             fileDetails[uniqueFileID] = scannedFileDetails
         # Are there any files not asscoaited to an inventory item?
