@@ -238,7 +238,6 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
             filePath = fileEvidenceDetails["filePath"]
             copyrightEvidenceFound= fileEvidenceDetails["copyRightMatches"]
             licenseEvidenceFound = list(set(fileEvidenceDetails["licenseMatches"]))
-            print(copyrightEvidenceFound)
 
             # Normalize the copyrights in case there are any encoding issues 
             copyrightEvidenceFound = [unicodedata.normalize('NFKD', x).encode('ASCII', 'ignore').decode('utf-8') for x in copyrightEvidenceFound]
