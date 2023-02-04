@@ -14,6 +14,7 @@ import hashlib
 import uuid
 import mimetypes
 import re
+import unicodedata
 import CodeInsight_RESTAPIs.project.get_project_inventory
 import CodeInsight_RESTAPIs.project.get_scanned_files
 import CodeInsight_RESTAPIs.project.get_project_evidence
@@ -237,6 +238,11 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
             filePath = fileEvidenceDetails["filePath"]
             copyrightEvidenceFound= fileEvidenceDetails["copyRightMatches"]
             licenseEvidenceFound = list(set(fileEvidenceDetails["licenseMatches"]))
+            print(copyrightEvidenceFound)
+
+            # Normalize the copyrights in case there are any encoding issues 
+            copyrightEvidenceFound = [unicodedata.normalize('NFKD', x).encode('ASCII', 'ignore').decode('utf-8') for x in copyrightEvidenceFound]
+       
             
             # Create a unique identifier based on fileID and scan location
             uniqueFileID = str(scannedFileId) + ("-r" if remoteFile else "-s")
@@ -296,8 +302,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
         # A dict to allow going from file path to unique ID (could be mulitple?)
         filePathToID = {}
         # Cycle through each scanned file
-
-
+        
         for scannedFile in scannedFiles:
             scannedFileDetails = {}
             remoteFile = scannedFile["remote"]
@@ -305,11 +310,15 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
             FileName = scannedFile["filePath"]  
             inInventory = scannedFile["inInventory"]  
 
+            logger.debug("    Scanned File: %s" %FileName)
+
             # Create a unique identifier based on fileID and scan location
             if remoteFile == "false":
                 uniqueFileID = str(scannedFileId) + "-s"
             else:
                 uniqueFileID = str(scannedFileId) + "-r"
+
+            logger.debug("        uniqueFileID: %s" %uniqueFileID)    
 
             # Add the ID to a list or create the list in the first place
             try:
@@ -352,9 +361,14 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
             # See if there is a SHA1 value and if not create one from the MD5 value
             if "fileSHA1" in scannedFile:
                 fileSHA1 = scannedFile["fileSHA1"]
-            else:
+                logger.debug("        fileSHA1: %s" %fileSHA1)  
+
+            if fileSHA1 is None:
                 logger.warning("        %s does not have a SHA1 calculation" %FileName)
                 fileSHA1 = hashlib.sha1(scannedFile["fileMD5"].encode('utf-8')).hexdigest()
+            else:
+                fileSHA1 = scannedFile["fileSHA1"]
+
 
             scannedFileDetails["fileSHA1"]  = fileSHA1
 
@@ -363,16 +377,15 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
             fileContainsEvidence = scannedFile["containsEvidence"]   
 
             if fileContainsEvidence:
-                # There is some sort of evidence in the file but is it what we need?
-                if "copyrightEvidenceFound" in fileEvidence[uniqueFileID]:
+                try:
                     scannedFileDetails["FileCopyrightText"] = fileEvidence[uniqueFileID]["copyrightEvidenceFound"]
-                else:
+                except:
                     scannedFileDetails["FileCopyrightText"] = ["NOASSERTION"]
-
-                if "licenseEvidenceFound" in fileEvidence[uniqueFileID]:
+                try:
                     scannedFileDetails["LicenseInfoInFile"] = fileEvidence[uniqueFileID]["licenseEvidenceFound"]
-                else:
+                except:
                     scannedFileDetails["LicenseInfoInFile"] = []
+                   
 
             fileDetails[uniqueFileID] = scannedFileDetails
         # Are there any files not asscoaited to an inventory item?
@@ -404,11 +417,18 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                 for file in spdxPackages[package]["files"]:
                     # Create a list of SHA1 values to hash
                     fileHashes.append(spdxPackages[package]["files"][file]["fileSHA1"])
+    
                     # Collect licesne info from files
                     fileLicenses.extend(spdxPackages[package]["files"][file]["LicenseInfoInFile"])
 
                 # Create a hash of the file hashes for PackageVerificationCode 
-                stringHash = ''.join(sorted(fileHashes))
+                try:
+                    stringHash = ''.join(sorted(fileHashes))
+                except:
+                    logger.error("Failure sorting file hashes for %s" %package)
+                    logger.debug(stringHash)
+                    stringHash = ''.join(fileHashes)
+
                 spdxPackages[package]["PackageVerificationCode"] = (hashlib.sha1(stringHash.encode('utf-8'))).hexdigest()
                 spdxPackages[package]["PackageLicenseInfoFromFiles"] = sorted(set(fileLicenses))
             else:

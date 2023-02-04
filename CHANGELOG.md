@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Fixed
 - Handle failure in purl creation gracefully (custom components will probably be skipped)
+- Support file with evidence but no copyright or license
+- Encoding fix for copyrights
+- Improved debugging
 
 ## [2.0.3] - 2022-10-03
 ### Fixed
