@@ -135,6 +135,23 @@ def generate_tag_value_spdx_report(reportData):
                 report_ptr.write("Relationship: %s CONTAINS %s\n" %(packageData["SPDXID"], packageFiles[file]["SPDXID"] ))
             report_ptr.write("\n")
 
+
+        report_ptr.write("\n")
+        report_ptr.write("##------------------------------\n")
+        report_ptr.write("##  License Identifiers\n")
+        report_ptr.write("##------------------------------\n")
+        report_ptr.write("\n")
+
+        for licenseReferencePacakgeIdentifiers in SPDXData["licenseReferencePacakgeIdentifiers"]:
+            report_ptr.write("LicenseID: LicenseRef-%s\n" %(licenseReferencePacakgeIdentifiers))
+            report_ptr.write("ExtractedText:  %s\n" %(licenseReferencePacakgeIdentifiers))
+            report_ptr.write("LicenseName: %s\n" %(licenseReferencePacakgeIdentifiers))
+            #report_ptr.write("LicenseCrossReference: %s\n" %(licenseReferencePacakgeIdentifiers))
+            for description in SPDXData["licenseReferencePacakgeIdentifiers"][licenseReferencePacakgeIdentifiers]:
+                report_ptr.write("LicenseComment: %s\n" %(description))
+            report_ptr.write("\n")
+
+
         report_ptr.close() 
         SPDXReports.append(spdxFile)
 

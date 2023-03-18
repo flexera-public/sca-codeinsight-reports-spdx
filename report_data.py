@@ -37,6 +37,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
 
     projectList = [] # List to hold parent/child details for report
     projectData = {} # Create a dictionary containing the project level summary data using projectID as keys
+    licenseReferencePacakgeIdentifiers = {} # Dict to hold details for non SPDX licenses
 
     # Get the list of parent/child projects start at the base project
     projectHierarchy = CodeInsight_RESTAPIs.project.get_child_projects.get_child_projects_recursively(baseURL, projectID, authToken)
@@ -155,7 +156,18 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                             possibleLicenseSPDXIdentifier = possibleLicenseSPDXIdentifier.split("(", 1)[0].rstrip()  # If there is a ( in string remove everything after and space
                             possibleLicenseSPDXIdentifier = re.sub('[^a-zA-Z0-9 \n\.]', '-', possibleLicenseSPDXIdentifier) # Replace spec chars with dash
                             possibleLicenseSPDXIdentifier = possibleLicenseSPDXIdentifier.replace(" ", "-") # Replace space with dash
-                            PackageLicenseDeclared.append("LicenseRef-%s" %possibleLicenseSPDXIdentifier)           
+                            licenseReference = "LicenseRef-%s" %possibleLicenseSPDXIdentifier
+                            PackageLicenseDeclared.append(licenseReference)
+
+                            if possibleLicenseSPDXIdentifier in licenseReferencePacakgeIdentifiers:
+                                if "SCA Revenera - Declared license details for this package" not in licenseReferencePacakgeIdentifiers[possibleLicenseSPDXIdentifier]:
+                                    licenseReferencePacakgeIdentifiers[possibleLicenseSPDXIdentifier].append("SCA Revenera - Declared license details for this package")
+                            else:
+                                licenseReferencePacakgeIdentifiers[possibleLicenseSPDXIdentifier] = []
+                                licenseReferencePacakgeIdentifiers[possibleLicenseSPDXIdentifier].append("SCA Revenera - Declared license details for this package")
+
+
+
                 except:
                     PackageLicenseDeclared.append(["NOASSERTION"])    
 
@@ -194,7 +206,15 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                     selectedLicenseSPDXIdentifier = selectedLicenseSPDXIdentifier.split("(", 1)[0].rstrip()  # If there is a ( in string remove everything after and space
                     selectedLicenseSPDXIdentifier = re.sub('[^a-zA-Z0-9 \n\.]', '-', selectedLicenseSPDXIdentifier) # Replace spec chars with dash
                     selectedLicenseSPDXIdentifier = selectedLicenseSPDXIdentifier.replace(" ", "-") # Replace space with dash
-                    PackageLicenseConcluded = "LicenseRef-%s" %selectedLicenseSPDXIdentifier 
+                    licenseReference = "LicenseRef-%s" %selectedLicenseSPDXIdentifier
+                    PackageLicenseConcluded = licenseReference 
+
+                    if selectedLicenseSPDXIdentifier in licenseReferencePacakgeIdentifiers:
+                        if "SCA Revenera - Concluded license details for this package" not in licenseReferencePacakgeIdentifiers[selectedLicenseSPDXIdentifier]:
+                            licenseReferencePacakgeIdentifiers[selectedLicenseSPDXIdentifier].append("SCA Revenera - Concluded license details for this package")
+                    else:
+                        licenseReferencePacakgeIdentifiers[selectedLicenseSPDXIdentifier] = []
+                        licenseReferencePacakgeIdentifiers[selectedLicenseSPDXIdentifier].append("SCA Revenera - Concluded license details for this package")
                        
                 spdxPackages[packageName]["PackageLicenseConcluded"] = PackageLicenseConcluded
                 
@@ -270,7 +290,16 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                         licenseEvidence = licenseEvidence.split("(", 1)[0].rstrip()  # If there is a ( in string remove everything after and space
                         licenseEvidence = re.sub('[^a-zA-Z0-9 \n\.]', '-', licenseEvidence) # Replace spec chars with dash
                         licenseEvidence = licenseEvidence.replace(" ", "-") # Replace space with dash
-                        licenseEvidenceFound[index]  = "LicenseRef-%s" %licenseEvidence 
+                        licenseReference = "LicenseRef-%s" %licenseEvidence
+                        licenseEvidenceFound[index]  = licenseReference
+
+                        if licenseEvidence in licenseReferencePacakgeIdentifiers:
+                            if "SCA Revenera - Observed license details for this file" not in licenseReferencePacakgeIdentifiers[licenseEvidence]:
+                                licenseReferencePacakgeIdentifiers[licenseEvidence].append("SCA Revenera - Observed license details for this file")
+                        else:
+                            licenseReferencePacakgeIdentifiers[licenseEvidence] = []
+                            licenseReferencePacakgeIdentifiers[licenseEvidence].append("SCA Revenera - Observed license details for this file")
+
            
             else:
                 logger.info("            No license evidence discovered")
@@ -443,6 +472,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
     SPDXData["Creator"] = Creator
     SPDXData["projectData"] = projectData
     SPDXData["DocumentNamespaceBase"] = DocumentNamespaceBase
+    SPDXData["licenseReferencePacakgeIdentifiers"] = licenseReferencePacakgeIdentifiers
 
     reportData = {}
     reportData["reportName"] = reportName
