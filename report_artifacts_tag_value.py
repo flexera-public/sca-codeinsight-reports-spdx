@@ -21,6 +21,7 @@ def generate_tag_value_spdx_report(reportData):
     fileNameTimeStamp =  reportData["fileNameTimeStamp"] 
     projectID = reportData["projectID"]
     SPDXData = reportData["SPDXData"]
+    dependencyMap = SPDXData["dependencyMap"]
 
     SPDXReports = []
 
@@ -122,6 +123,7 @@ def generate_tag_value_spdx_report(reportData):
             report_ptr.write("##------------------------------\n")
             report_ptr.write("\n")
 
+            parentInventoryID = packageData["parentInventoryID"]
 
             packageData = SPDXData["projectData"][projectID]["spdxPackages"][package]
 
@@ -129,7 +131,11 @@ def generate_tag_value_spdx_report(reportData):
             packageFiles = packageData["files"]
 
             report_ptr.write("Relationship: %s DESCRIBES %s\n" %("SPDXRef-DOCUMENT", packageData["SPDXID"] ))
-            report_ptr.write("Relationship: %s DESCRIBED_BY  %s\n" %(packageData["SPDXID"], "SPDXRef-DOCUMENT" ))
+            report_ptr.write("Relationship: %s DESCRIBED_BY %s\n" %(packageData["SPDXID"], "SPDXRef-DOCUMENT" ))
+
+            if parentInventoryID in dependencyMap:
+                report_ptr.write("Relationship: %s DEPENDENCY_OF %s\n" %(packageData["SPDXID"], dependencyMap[parentInventoryID] ))
+
 
             for file in packageFiles:
                 report_ptr.write("Relationship: %s CONTAINS %s\n" %(packageData["SPDXID"], packageFiles[file]["SPDXID"] ))

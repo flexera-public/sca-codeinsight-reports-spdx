@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Encoding fix for copyrights
 - Improved debugging
 - LicenseRef values
+- Add package dependency support
 
 ## [2.0.3] - 2022-10-03
 ### Fixed

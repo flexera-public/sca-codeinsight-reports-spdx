@@ -37,6 +37,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
 
     projectList = [] # List to hold parent/child details for report
     projectData = {} # Create a dictionary containing the project level summary data using projectID as keys
+    dependencyMap = {}  # A look up to allow the depedency relationship to be reported on
     licenseReferencePacakgeIdentifiers = {} # Dict to hold details for non SPDX licenses
 
     # Get the list of parent/child projects start at the base project
@@ -46,7 +47,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
     SPDXVersion = "SPDX-2.2"
     DataLicense = "CC0-1.0"
     DocumentNamespaceBase = "http:/spdx.org/spdxdocs"  # This shold be modified for each Code Insight instance
-    Creator = "Revenera Code Insight 2022"  # TODO - Get value from API
+    Creator = "Revenera SCA - Code Insight 2023"  # TODO - Get value from API
 
     # Create a list of project data sorted by the project name at each level for report display  
     # Add details for the parent node
@@ -94,6 +95,8 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                 versionName = re.sub('[^a-zA-Z0-9 \n\.]', '-', inventoryItem["componentVersionName"]).lstrip('-')  # Replace spec chars with dash
                 inventoryID = inventoryItem["id"]
                 packageName = componentName + "-" + versionName + "-" + str(inventoryID)
+                dependencyMap[inventoryID] = packageName
+                parentInventoryID = inventoryItem["parentInventoryID"]
 
                 PackageComment = {}
                 PackageComment["inventoryItemName"] = inventoryItem["name"]
@@ -117,6 +120,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                 spdxPackages[packageName]["reportName"] = str(projectID) + "-" + packageName + ".spdx"
                 spdxPackages[packageName]["packageName"] = componentName
                 spdxPackages[packageName]["packageVersion"] = versionName
+                spdxPackages[packageName]["parentInventoryID"] = parentInventoryID
                 spdxPackages[packageName]["SPDXID"] = "SPDXRef-Pkg-" + packageName
                 spdxPackages[packageName]["PackageFileName"] = packageName
                 spdxPackages[packageName]["DocumentName"] =  projectName + "-" + packageName
@@ -473,6 +477,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
     SPDXData["projectData"] = projectData
     SPDXData["DocumentNamespaceBase"] = DocumentNamespaceBase
     SPDXData["licenseReferencePacakgeIdentifiers"] = licenseReferencePacakgeIdentifiers
+    SPDXData["dependencyMap"] = dependencyMap
 
     reportData = {}
     reportData["reportName"] = reportName
