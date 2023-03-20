@@ -1,0 +1,27 @@
+{
+    "reportName" : "SBOM Report - SPDX",
+    "enableProjectPickerValue" : "false",
+    "reportOptions" : {
+        "option1" : 
+        {
+            "name" : "includeChildProjects",
+            "label" : "Include child project data? (True/False)",
+            "description" : "Should the report include data from child projects? <b>(True/False)</b>",
+            "type" : "string",
+            "defaultValue" : "True",
+            "required" : "true",
+            "order" : "1"
+        },
+        "option2" :
+        {
+            "name" : "includeUnassociatedFiles",
+            "label" : "Include files that are not associated to inventory items? (True/False)",
+            "description" : "Should the report include data for files not associated to inventory items? <b>(True/False)</b>",
+            "type" : "string",
+            "defaultValue" : "False",
+            "required" : "true",
+            "order" : "2"
+        }
+
+    }
+}
