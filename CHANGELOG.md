@@ -4,11 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [unreleased]
+
+## [2.2.0] - 2023-03-20
 ### Fixed
+- Updated registration script to include registraion_config.json
 - Fix dependency relationship for SPDX ID vs package name
 
-## [2.1.0] - 2023-13-19
+## [2.1.0] - 2023-03-19
 ### Fixed
 - Handle failure in purl creation gracefully (custom components will probably be skipped)
 - Support file with evidence but no copyright or license
