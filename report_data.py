@@ -95,7 +95,8 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                 versionName = re.sub('[^a-zA-Z0-9 \n\.]', '-', inventoryItem["componentVersionName"]).lstrip('-')  # Replace spec chars with dash
                 inventoryID = inventoryItem["id"]
                 packageName = componentName + "-" + versionName + "-" + str(inventoryID)
-                dependencyMap[inventoryID] = packageName
+                SPDXID = "SPDXRef-Pkg-" + packageName
+                dependencyMap[inventoryID] = SPDXID
                 parentInventoryID = inventoryItem["parentInventoryID"]
 
                 PackageComment = {}
@@ -121,7 +122,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                 spdxPackages[packageName]["packageName"] = componentName
                 spdxPackages[packageName]["packageVersion"] = versionName
                 spdxPackages[packageName]["parentInventoryID"] = parentInventoryID
-                spdxPackages[packageName]["SPDXID"] = "SPDXRef-Pkg-" + packageName
+                spdxPackages[packageName]["SPDXID"] = SPDXID
                 spdxPackages[packageName]["PackageFileName"] = packageName
                 spdxPackages[packageName]["DocumentName"] =  projectName + "-" + packageName
                 spdxPackages[packageName]["DocumentNamespace"] = DocumentNamespaceBase + "/" + projectName + "-" + packageName + "-" + str(uuid.uuid1())
