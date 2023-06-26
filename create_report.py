@@ -122,6 +122,7 @@ def main():
 		reports = report_errors.create_error_report(reportData)
 		print("    *** ERROR  ***  Error found validating report options")
 	else:
+		print("    Collect data for %s" %reportName)
 		reportData = report_data.gather_data_for_report(baseURL, projectID, authToken, reportName, reportVersion, reportOptions)
 		print("    Report data has been collected")
 		reportData["fileNameTimeStamp"] = fileNameTimeStamp

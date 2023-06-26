@@ -74,7 +74,12 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
         projectID = project["projectID"]
         projectName = project["projectName"]
 
+        print("        Collect inventory for project: %s" %projectName)
+        logger.info("        Collect inventory for this project")
         projectInventory = CodeInsight_RESTAPIs.project.get_project_inventory.get_project_inventory_details_without_vulnerabilities(baseURL, projectID, authToken)
+        print("        Inventory has been collected for this project")
+        logger.info("        Inventory has been collected for this project")
+
         inventoryItems = projectInventory["inventoryItems"]
 
         # Create empty dictionary for project level data for this project
@@ -84,10 +89,13 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
         spdxPackages = {}
         filesNotInComponents = []
 
+        print("        Process inventory details for this project.")
+
         for inventoryItem in inventoryItems:
             
             inventoryType = inventoryItem["type"]
-            
+           
+
             # Seperate out Inventory vs WIP or License Only items
             if inventoryType == "Component":
 
@@ -229,6 +237,8 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
                 for file in inventoryItem["filePaths"]:
                     filesNotInComponents.append(file)
 
+        print("        Completed processing inventory details for this project.")
+
         # Create a package to hold files not associated to an inventory item directly
         if includeUnassociatedFiles:
             nonInventoryPackageName = "OtherFiles"
@@ -250,10 +260,13 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
         # Dictionary to contain all of the file specific data
         fileDetails = {}
 
-        # Collect the copyright/license data per file and create dict based on 
+        # Collect the copyright/license data per file and create dict based on
+        print("        Get all file evidence for this project")
+        logger.info("Get all file evidence for this project")
         projectEvidenceDetails = CodeInsight_RESTAPIs.project.get_project_evidence.get_project_evidence(baseURL, projectID, authToken)
+        print("        File evidence for this project has been received") 
+        logger.info("File evidence for this project has been received") 
  
-
         # Dictionary to contain all of the file specific data
         fileEvidence = {}
 
@@ -267,7 +280,6 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
             # Normalize the copyrights in case there are any encoding issues 
             copyrightEvidenceFound = [unicodedata.normalize('NFKD', x).encode('ASCII', 'ignore').decode('utf-8') for x in copyrightEvidenceFound]
        
-            
             # Create a unique identifier based on fileID and scan location
             uniqueFileID = str(scannedFileId) + ("-r" if remoteFile else "-s")
      
@@ -330,7 +342,11 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
             fileEvidence[uniqueFileID]["licenseEvidenceFound"]= licenseEvidenceFound     
 
         # Collect a list of the scanned files
+        print("        Collect data for all scanned files for this project")
+        logger.info("Collect data for all scanned files for this project")
         scannedFiles = CodeInsight_RESTAPIs.project.get_scanned_files.get_scanned_files_details_with_MD5_and_SHA1(baseURL, projectID, authToken)
+        print("        Data for %s scanned files for this project has been received." %len(scannedFiles))
+        logger.info("Data for %s scanned files for this project has been received." %len(scannedFiles))
 
         # A dict to allow going from file path to unique ID (could be mulitple?)
         filePathToID = {}
