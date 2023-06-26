@@ -246,6 +246,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
             spdxPackages[nonInventoryPackageName]["reportName"] = str(projectID)  + "-" + nonInventoryPackageName + ".spdx"
             spdxPackages[nonInventoryPackageName]["packageName"] = nonInventoryPackageName
             spdxPackages[nonInventoryPackageName]["packageVersion"] = "N/A"
+            spdxPackages[nonInventoryPackageName]["parentInventoryID"] = "N/A"
             spdxPackages[nonInventoryPackageName]["containedFiles"] = []
             spdxPackages[nonInventoryPackageName]["SPDXID"] = "SPDXRef-Pkg-" + nonInventoryPackageName
             spdxPackages[nonInventoryPackageName]["PackageFileName"] = nonInventoryPackageName
