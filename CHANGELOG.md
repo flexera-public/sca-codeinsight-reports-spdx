@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+## [2.2.1] - 2023-06-27
+### Fixed
+- Main report name to reflect primary project
+- Update APIs to get all scanned file in a single call (performance improvement)
+- Resolved lack of parentInventoryID issue with OtherFiles pacakge
+### Added
+- Improved logging for main output to provide more context for current report location
+
 ## [2.2.0] - 2023-03-20
 ### Fixed
 - Updated registration script to include registraion_config.json
