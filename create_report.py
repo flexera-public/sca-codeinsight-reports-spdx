@@ -95,6 +95,7 @@ def main():
 	reportOptions = args.reportOptions
 
 	fileNameTimeStamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+	reportTimeStamp = datetime.strptime(fileNameTimeStamp, "%Y%m%d-%H%M%S").strftime("%B %d, %Y at %H:%M:%S")
 
 	# Based on how the shell pass the arguemnts clean up the options if on a linux system:w
 	if sys.platform.startswith('linux'):
@@ -118,6 +119,8 @@ def main():
 	reportData["reportVersion"] = reportVersion
 	reportData["reportOptions"] = reportOptions
 	reportData["releaseVersion"] = releaseVersion
+	reportData["fileNameTimeStamp"] = fileNameTimeStamp
+	reportData["reportTimeStamp"] = reportTimeStamp
 
 	# Collect the data for the report
 	
@@ -127,7 +130,6 @@ def main():
 
 		reportData["errorMsg"] = reportOptions["errorMsg"]
 		reportData["reportName"] = reportName
-		reportData["reportTimeStamp"] = datetime.strptime(fileNameTimeStamp, "%Y%m%d-%H%M%S").strftime("%B %d, %Y at %H:%M:%S")
 		reportData["reportFileNameBase"] = reportFileNameBase
 
 		reports = report_errors.create_error_report(reportData)
@@ -136,7 +138,7 @@ def main():
 		print("    Collect data for %s" %reportName)
 		reportData = report_data.gather_data_for_report(baseURL, projectID, authToken, reportData)
 		print("    Report data has been collected")
-		reportData["fileNameTimeStamp"] = fileNameTimeStamp
+
 		projectName = reportData["projectName"]
 		projectNameForFile = re.sub(r"[^a-zA-Z0-9]+", '-', projectName )  # Remove special characters from project name for artifacts
 
@@ -146,7 +148,6 @@ def main():
 		else:
 			reportFileNameBase = projectNameForFile + "-with-children-" + str(projectID) + "-" + reportName.replace(" ", "_") + "-" + fileNameTimeStamp
 
-		reportData["reportTimeStamp"] = datetime.strptime(fileNameTimeStamp, "%Y%m%d-%H%M%S").strftime("%B %d, %Y at %H:%M:%S")
 		reportData["reportFileNameBase"] = reportFileNameBase
 
 		if "errorMsg" in reportData.keys():
