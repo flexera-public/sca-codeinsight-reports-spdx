@@ -20,6 +20,7 @@ import common.api.project.get_scanned_files
 import common.api.project.get_project_evidence
 import common.api.project.get_child_projects
 import common.api.project.get_project_information
+import common.api.system.release
 
 import SPDX_license_mappings # To map evidence to an SPDX license name
 import filetype_mappings
@@ -28,8 +29,13 @@ import purl
 logger = logging.getLogger(__name__)
 
 #-------------------------------------------------------------------#
-def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVersion, reportOptions):
+def gather_data_for_report(baseURL, projectID, authToken, reportData):
     logger.info("Entering gather_data_for_report")
+
+    reportName = reportData["reportName"]
+    reportVersion =reportData["reportVersion"] 
+    reportOptions = reportData["reportOptions"]
+    releaseVersion = reportData["releaseVersion"]
 
     # Parse report options
     includeChildProjects = reportOptions["includeChildProjects"]  # True/False
@@ -47,7 +53,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
     SPDXVersion = "SPDX-2.2"
     DataLicense = "CC0-1.0"
     DocumentNamespaceBase = "http:/spdx.org/spdxdocs"  # This shold be modified for each Code Insight instance
-    Creator = "Revenera SCA - Code Insight 2023"  # TODO - Get value from API
+    Creator = "Revenera SCA - Code Insight %s" %releaseVersion
 
     # Create a list of project data sorted by the project name at each level for report display  
     # Add details for the parent node
@@ -497,13 +503,10 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
     SPDXData["licenseReferencePacakgeIdentifiers"] = licenseReferencePacakgeIdentifiers
     SPDXData["dependencyMap"] = dependencyMap
 
-    reportData = {}
-    reportData["reportName"] = reportName
     reportData["projectName"] =  projectHierarchy["name"]
     reportData["applicationDocumentString"] =  applicationDocumentString
     reportData["projectID"] = projectHierarchy["id"]
     reportData["projectList"] = projectList
-    reportData["reportVersion"] = reportVersion
     reportData["SPDXData"] = SPDXData
     reportData["applicationDetails"]=applicationDetails
 

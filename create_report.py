@@ -21,6 +21,7 @@ import report_data
 import report_artifacts
 import report_errors
 import common.api.project.upload_reports
+import common.api.system.release
 
 ###################################################################################
 # Test the version of python to make sure it's at least the version the script
@@ -101,11 +102,21 @@ def main():
 	reportOptions = json.loads(reportOptions)
 	reportOptions = verifyOptions(reportOptions) 
 
+	releaseDetails = common.api.system.release.get_release_details(baseURL, authToken)
+	releaseVersion = releaseDetails["fnci.release.name"].replace(" ", "")
+
+	logger.debug("Code Insight Release: %s" %releaseVersion)
 	logger.debug("Custom Report Provided Arguments:")	
 	logger.debug("    projectID:  %s" %projectID)	
 	logger.debug("    reportID:   %s" %reportID)	
 	logger.debug("    baseURL:  %s" %baseURL)	
-	logger.debug("    reportOptions:  %s" %reportOptions)		
+	logger.debug("    reportOptions:  %s" %reportOptions)
+
+	reportData = {}
+	reportData["reportName"] = reportName
+	reportData["reportVersion"] = reportVersion
+	reportData["reportOptions"] = reportOptions
+	reportData["releaseVersion"] = releaseVersion
 
 	# Collect the data for the report
 	
@@ -113,7 +124,6 @@ def main():
 
 		reportFileNameBase = reportName.replace(" ", "_") + "-Creation_Error-" + fileNameTimeStamp
 
-		reportData = {}
 		reportData["errorMsg"] = reportOptions["errorMsg"]
 		reportData["reportName"] = reportName
 		reportData["reportTimeStamp"] = datetime.strptime(fileNameTimeStamp, "%Y%m%d-%H%M%S").strftime("%B %d, %Y at %H:%M:%S")
@@ -123,7 +133,7 @@ def main():
 		print("    *** ERROR  ***  Error found validating report options")
 	else:
 		print("    Collect data for %s" %reportName)
-		reportData = report_data.gather_data_for_report(baseURL, projectID, authToken, reportName, reportVersion, reportOptions)
+		reportData = report_data.gather_data_for_report(baseURL, projectID, authToken, reportData)
 		print("    Report data has been collected")
 		reportData["fileNameTimeStamp"] = fileNameTimeStamp
 		projectName = reportData["projectName"]
