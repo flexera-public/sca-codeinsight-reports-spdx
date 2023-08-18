@@ -37,9 +37,9 @@ def generate_error_report(reportData):
     logger.info("    Entering generate_error_report")
 
     scriptDirectory = os.path.dirname(os.path.realpath(__file__))
-    cssFile =  os.path.join(scriptDirectory, "html-assets/css/revenera_common.css")
-    logoImageFile =  os.path.join(scriptDirectory, "html-assets/images/logo_reversed.svg")
-    iconFile =  os.path.join(scriptDirectory, "html-assets/images/favicon-revenera.ico")
+    cssFile =  os.path.join(scriptDirectory, "common/branding/css/revenera_common.css")
+    logoImageFile =  os.path.join(scriptDirectory, "common/branding/images/logo_reversed.svg")
+    iconFile =  os.path.join(scriptDirectory, "common/branding/images/favicon-revenera.ico")
     
     reportName = reportData["reportName"]
     reportFileNameBase = reportData["reportFileNameBase"]

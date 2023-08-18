@@ -11,7 +11,7 @@ File : purl.py
 from email.mime import base
 import logging
 
-import CodeInsight_RESTAPIs.component.get_component_details
+import common.api.component.get_component_details
 logger = logging.getLogger(__name__)
 
 
@@ -78,7 +78,7 @@ def get_purl_string(inventoryItem, baseURL, authToken):
         purlVersion = componentVersionName
 
         # Get namespace from component lookup
-        componentDetails = CodeInsight_RESTAPIs.component.get_component_details.get_component_details_v3_summary(baseURL, componentId, authToken)
+        componentDetails = common.api.component.get_component_details.get_component_details_v3_summary(baseURL, componentId, authToken)
         componentTitle = componentDetails["data"]["title"]
 
         purlNameSpace = componentTitle.split("/")[0] # parse groupId from component title (start of string to forward slash "/")
@@ -91,7 +91,7 @@ def get_purl_string(inventoryItem, baseURL, authToken):
         purlVersion = componentVersionName  
         
         # Get case sensitive name from component lookup
-        componentDetails = CodeInsight_RESTAPIs.component.get_component_details.get_component_details_v3_summary(baseURL, componentId, authToken)
+        componentDetails = common.api.component.get_component_details.get_component_details_v3_summary(baseURL, componentId, authToken)
         componentTitle = componentDetails["data"]["title"]
         purlName = componentTitle.split(" - ")[0] # parse case-sensitive name from component title (start of string to dash "-" minus 1)
 
@@ -109,7 +109,7 @@ def get_purl_string(inventoryItem, baseURL, authToken):
         purlNameSpace = ""
 
         # Get case sensitive name from component lookup
-        componentDetails = CodeInsight_RESTAPIs.component.get_component_details.get_component_details_v3_summary(baseURL, componentId, authToken)
+        componentDetails = common.api.component.get_component_details.get_component_details_v3_summary(baseURL, componentId, authToken)
         componentTitle = componentDetails["data"]["title"]
         purlName = componentTitle.split(" - ")[0] # parse case-sensitive name from component title (start of string to dash "-" minus 1)
 
@@ -121,7 +121,7 @@ def get_purl_string(inventoryItem, baseURL, authToken):
         purlVersion = componentVersionName  
 
         # Get case sensitive name from component lookup
-        componentDetails = CodeInsight_RESTAPIs.component.get_component_details.get_component_details_v3_summary(baseURL, componentId, authToken)
+        componentDetails = common.api.component.get_component_details.get_component_details_v3_summary(baseURL, componentId, authToken)
         componentTitle = componentDetails["data"]["title"]
        
         componentName = componentTitle.split(" - ")[0] # parse case-sensitive name from component title (start of string to dash "-" minus 1)

@@ -15,11 +15,11 @@ import uuid
 import mimetypes
 import re
 import unicodedata
-import CodeInsight_RESTAPIs.project.get_project_inventory
-import CodeInsight_RESTAPIs.project.get_scanned_files
-import CodeInsight_RESTAPIs.project.get_project_evidence
-import CodeInsight_RESTAPIs.project.get_child_projects
-import CodeInsight_RESTAPIs.project.get_project_information
+import common.api.project.get_project_inventory
+import common.api.project.get_scanned_files
+import common.api.project.get_project_evidence
+import common.api.project.get_child_projects
+import common.api.project.get_project_information
 
 import SPDX_license_mappings # To map evidence to an SPDX license name
 import filetype_mappings
@@ -41,7 +41,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
     licenseReferencePacakgeIdentifiers = {} # Dict to hold details for non SPDX licenses
 
     # Get the list of parent/child projects start at the base project
-    projectHierarchy = CodeInsight_RESTAPIs.project.get_child_projects.get_child_projects_recursively(baseURL, projectID, authToken)
+    projectHierarchy = common.api.project.get_child_projects.get_child_projects_recursively(baseURL, projectID, authToken)
     projectName = projectHierarchy["name"]
 
     SPDXVersion = "SPDX-2.2"
@@ -76,7 +76,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
 
         print("        Collect inventory for project: %s" %projectName)
         logger.info("        Collect inventory for this project")
-        projectInventory = CodeInsight_RESTAPIs.project.get_project_inventory.get_project_inventory_details_without_vulnerabilities(baseURL, projectID, authToken)
+        projectInventory = common.api.project.get_project_inventory.get_project_inventory_details_without_vulnerabilities(baseURL, projectID, authToken)
         print("        Inventory has been collected for this project")
         logger.info("        Inventory has been collected for this project")
 
@@ -264,7 +264,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
         # Collect the copyright/license data per file and create dict based on
         print("        Get all file evidence for this project")
         logger.info("Get all file evidence for this project")
-        projectEvidenceDetails = CodeInsight_RESTAPIs.project.get_project_evidence.get_project_evidence(baseURL, projectID, authToken)
+        projectEvidenceDetails = common.api.project.get_project_evidence.get_project_evidence(baseURL, projectID, authToken)
         print("        File evidence for this project has been received") 
         logger.info("File evidence for this project has been received") 
  
@@ -345,7 +345,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportName, reportVers
         # Collect a list of the scanned files
         print("        Collect data for all scanned files for this project")
         logger.info("Collect data for all scanned files for this project")
-        scannedFiles = CodeInsight_RESTAPIs.project.get_scanned_files.get_scanned_files_details_with_MD5_and_SHA1(baseURL, projectID, authToken)
+        scannedFiles = common.api.project.get_scanned_files.get_scanned_files_details_with_MD5_and_SHA1(baseURL, projectID, authToken)
         print("        Data for %s scanned files for this project has been received." %len(scannedFiles))
         logger.info("Data for %s scanned files for this project has been received." %len(scannedFiles))
 
@@ -544,7 +544,7 @@ def determine_application_details(baseURL, projectName, projectID, authToken):
     applicationPublisher = ""
     applicationDocumentString = ""
 
-    projectInformation = CodeInsight_RESTAPIs.project.get_project_information.get_project_information_summary(baseURL, projectID, authToken)
+    projectInformation = common.api.project.get_project_information.get_project_information_summary(baseURL, projectID, authToken)
 
     # Project level custom fields added in 2022R1
     if "customFields" in projectInformation:
