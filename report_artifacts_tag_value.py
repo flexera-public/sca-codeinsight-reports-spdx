@@ -9,7 +9,6 @@ File : report_artifacts_tag_value.py
 '''
 import logging
 import re
-from datetime import datetime
 logger = logging.getLogger(__name__)
 
 #--------------------------------------------------------------------------------#
@@ -49,8 +48,8 @@ def generate_tag_value_spdx_report(reportData):
         report_ptr.write("SPDXID: SPDXRef-DOCUMENT\n")
         report_ptr.write("DocumentName: %s\n" %SPDXData["projectData"][projectID]["DocumentName"])
         report_ptr.write("DocumentNamespace: %s\n" %SPDXData["projectData"][projectID]["DocumentNamespace"])
-        report_ptr.write("Creator: Tool: %s\n" %SPDXData["Creator"])
-        report_ptr.write("Created:  %s\n" %(datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")))
+        report_ptr.write("Creator: %s\n" %SPDXData["Creator"])
+        report_ptr.write("Created:  %s\n" %(reportData["spdxTimeStamp"]))
 
         report_ptr.write("\n")
         report_ptr.write("##------------------------------\n")
@@ -83,7 +82,7 @@ def generate_tag_value_spdx_report(reportData):
                     
             report_ptr.write("PackageLicenseConcluded: %s\n" %packageData["PackageLicenseConcluded"])
             report_ptr.write("PackageLicenseDeclared: %s\n" %packageData["PackageLicenseDeclared"])
-            report_ptr.write("PackageCopyrightText: NOASSERTION\n")
+            report_ptr.write("PackageCopyrightText: %s\n" %packageData["packageCopyrightText"])
 
             if packageName != "OtherFiles":
                 if "@" in packageData["purlString"]:
@@ -110,7 +109,7 @@ def generate_tag_value_spdx_report(reportData):
                     for license in packageFiles[file]["LicenseInfoInFile"]:
                         report_ptr.write("LicenseInfoInFile: %s\n" %license)
                     
-                    for copyright in packageFiles[file]["FileCopyrightText"]:
+                    for copyright in packageFiles[file]["FileCopyrightText"].split(" | "):
                         report_ptr.write("FileCopyrightText: %s\n" %copyright)
                     
                     report_ptr.write("\n")
