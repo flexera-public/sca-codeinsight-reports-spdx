@@ -96,6 +96,7 @@ def main():
 
 	fileNameTimeStamp = datetime.now().strftime("%Y%m%d-%H%M%S")
 	reportTimeStamp = datetime.strptime(fileNameTimeStamp, "%Y%m%d-%H%M%S").strftime("%B %d, %Y at %H:%M:%S")
+	spdxTimeStamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
 
 	# Based on how the shell pass the arguemnts clean up the options if on a linux system:w
 	if sys.platform.startswith('linux'):
@@ -121,6 +122,7 @@ def main():
 	reportData["releaseVersion"] = releaseVersion
 	reportData["fileNameTimeStamp"] = fileNameTimeStamp
 	reportData["reportTimeStamp"] = reportTimeStamp
+	reportData["spdxTimeStamp"] = spdxTimeStamp
 
 	# Collect the data for the report
 	
