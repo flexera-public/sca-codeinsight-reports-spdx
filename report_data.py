@@ -32,8 +32,6 @@ logger = logging.getLogger(__name__)
 def gather_data_for_report(baseURL, projectID, authToken, reportData):
     logger.info("Entering gather_data_for_report")
 
-    reportName = reportData["reportName"]
-    reportVersion =reportData["reportVersion"] 
     reportOptions = reportData["reportOptions"]
     releaseVersion = reportData["releaseVersion"]
 
@@ -52,8 +50,8 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
 
     SPDXVersion = "SPDX-2.2"
     DataLicense = "CC0-1.0"
-    DocumentNamespaceBase = "http:/spdx.org/spdxdocs"  # This shold be modified for each Code Insight instance
-    Creator = "Revenera SCA - Code Insight %s" %releaseVersion
+    DocumentNamespaceBase = "http:/spdx.org/spdxdocs" 
+    Creator = "Tool: Revenera SCA - Code Insight %s" %releaseVersion
 
     # Create a list of project data sorted by the project name at each level for report display  
     # Add details for the parent node
@@ -151,6 +149,9 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
                 spdxPackages[packageName]["containedFiles"] = filesInInventory
                 spdxPackages[packageName]["purlString"] = purlString
 
+                spdxPackages[packageName]["packageCopyrightText"] = "NOASSERTION"   # TODO - use a inventory custom field to store this?
+
+
                 ##########################################
                 # Manage Declared Licenses
                 logger.info("    Manage Declared/Possible Licenses")
@@ -236,6 +237,9 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
                         licenseReferencePacakgeIdentifiers[selectedLicenseSPDXIdentifier].append("SCA Revenera - Concluded license details for this package")
                        
                 spdxPackages[packageName]["PackageLicenseConcluded"] = PackageLicenseConcluded
+
+
+
                 
             else:
                 # This is a WIP or License only item so take the files assocated here and include them in
@@ -262,6 +266,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
             spdxPackages[nonInventoryPackageName]["PackageDownloadLocation"] = "NOASSERTION"
             spdxPackages[nonInventoryPackageName]["PackageLicenseConcluded"] = "NOASSERTION"
             spdxPackages[nonInventoryPackageName]["PackageLicenseDeclared"] = "NOASSERTION"
+            spdxPackages[nonInventoryPackageName]["packageCopyrightText"] = "NOASSERTION"
     
         ############################################################################
         # Dictionary to contain all of the file specific data
@@ -339,9 +344,11 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
             # Manage File Level Copyrights
             if copyrightEvidenceFound:
                 logger.info("            Copyright evidence discovered")
+                # The response has the copyright details as a list so convert to a string
+                copyrightEvidenceFound = " | ".join(copyrightEvidenceFound)
             else:
                 logger.info("            No copyright evidence discovered")
-                copyrightEvidenceFound = ["NONE"]
+                copyrightEvidenceFound = "NONE"
 
             fileEvidence[uniqueFileID] = {}
             fileEvidence[uniqueFileID]["Filename"]= filePath
@@ -571,8 +578,6 @@ def determine_application_details(baseURL, projectName, projectID, authToken):
                 if customField["value"]:
                     applicationPublisher = customField["value"]    
 
-
-
     # Join the custom values to create the application name for the report artifacts
     if applicationName != projectName:
         if applicationVersion != "":
@@ -584,6 +589,7 @@ def determine_application_details(baseURL, projectName, projectID, authToken):
 
     if applicationPublisher != "":
         applicationDocumentString = applicationPublisher
+    
 
     # This will either be the project name or the supplied application name
     applicationDocumentString += "_" + applicationName
