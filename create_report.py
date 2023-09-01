@@ -154,6 +154,8 @@ def main():
 		else:
 			reports = report_artifacts.create_report_artifacts(reportData)
 			print("    Report artifacts have been created")
+			for report in reports["allFormats"]:
+				print("       - %s"%report)
 
 	print("    Create report archive for upload")
 	uploadZipfile = common.report_archive.create_report_zipfile(reports, reportFileNameBase)
