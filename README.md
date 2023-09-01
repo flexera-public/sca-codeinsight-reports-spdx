@@ -2,8 +2,9 @@
 
 The `sca-codeinsight-reports-spdx` repository is a example report for Revenera's Code Insight product. This report allows a user to generate an SPDX report representing the software bill of material (SBOM) information, including components, licenses, copyrights, and security references. 
 
-## Prerequisites
+ **Supported SPDX Version Output - 2.2**
 
+## Prerequisites
 
  **Code Insight Release Requirements**
   
@@ -13,6 +14,7 @@ The `sca-codeinsight-reports-spdx` repository is a example report for Revenera's
 |1.1.x |2021R3  |
 |1.2.x |2021R4  |
 |1.3.x |2022R1  |
+|3.x.x |2023R2  |
 
 **Repository Cloning**
 
@@ -78,9 +80,9 @@ To update this report configuration:
 
 This report is executed directly from within Revenera's Code Insight product. From the project reports tab of each Code Insight project it is possible to *generate* the **SPDX Report** via the Report Framework.
 
-
 **Report Options**
 - Including child projects (True/False) - Determine if child project data will be included or not.
+- Including file level details (True/False) - Determine if any file data will be included or not.
 - Including files not associated with inventory items (True/False) - Should files not associated with inventory items be included in the report
 
 The generated reports will utilize the following Project Custom Fields if available

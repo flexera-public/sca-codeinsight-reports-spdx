@@ -6,6 +6,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+## [3.0.0] - 2023-09-01
+### Changed
+- Changed submodule to https://github.com/flexera-public/sca-codeinsight-reports-common
+- Used common functions from common module
+- Consolidated all children projects into single report
+- Unified requirement with other reports (Python v3.6.8)
+### Added
+- Support for JSON output
+- Added option to ignore all file level data
+- Code Insight Vesion into report
+- Validated with SPDX Command Line Tools using the Spdx-Java-Library v1.1.7
+### Removed
+- Removed tag/value format
+
 ## [2.2.1] - 2023-06-27
 ### Fixed
 - Main report name to reflect primary project
