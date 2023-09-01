@@ -1,30 +1,19 @@
 '''
-Copyright 2020 Flexera Software LLC
+Copyright 2023 Flexera Software LLC
 See LICENSE.TXT for full license text
 SPDX-License-Identifier: MIT
 
 Author : sgeary  
-Created On : Wed Oct 21 2020
+Created On : Tue Aug 29 2023
 File : report_data.py
 '''
 
-import logging
-import os
-import hashlib
-import uuid
-import mimetypes
-import re
-import unicodedata
+import logging, uuid, re, hashlib
+import common.application_details
+import common.project_heirarchy
 import common.api.project.get_project_inventory
-import common.api.project.get_scanned_files
-import common.api.project.get_project_evidence
-import common.api.project.get_child_projects
-import common.api.project.get_project_information
-import common.api.system.release
-
-import SPDX_license_mappings # To map evidence to an SPDX license name
-import filetype_mappings
-import purl
+import SPDX_license_mappings, purl
+import report_data_files
 
 logger = logging.getLogger(__name__)
 
@@ -32,579 +21,386 @@ logger = logging.getLogger(__name__)
 def gather_data_for_report(baseURL, projectID, authToken, reportData):
     logger.info("Entering gather_data_for_report")
 
+    reportDetails={}
+    packages = []
+    hasExtractedLicensingInfos = {}
+    relationships = []
+    files = []
+    filesNotInInventory = []
+    filePathsNotInInventoryToID = {}
+
     reportOptions = reportData["reportOptions"]
     releaseVersion = reportData["releaseVersion"]
 
     # Parse report options
     includeChildProjects = reportOptions["includeChildProjects"]  # True/False
+    includeFileDetails = reportOptions["includeFileDetails"]  # True/False
     includeUnassociatedFiles = reportOptions["includeUnassociatedFiles"]  # True/False
 
-    projectList = [] # List to hold parent/child details for report
-    projectData = {} # Create a dictionary containing the project level summary data using projectID as keys
-    dependencyMap = {}  # A look up to allow the depedency relationship to be reported on
-    licenseReferencePacakgeIdentifiers = {} # Dict to hold details for non SPDX licenses
-
-    # Get the list of parent/child projects start at the base project
-    projectHierarchy = common.api.project.get_child_projects.get_child_projects_recursively(baseURL, projectID, authToken)
-    projectName = projectHierarchy["name"]
+    applicationDetails = common.application_details.determine_application_details(projectID, baseURL, authToken)
+    documentName = applicationDetails["applicationDocumentString"].replace(" ", "_")
+    projectList = common.project_heirarchy.create_project_heirarchy(baseURL, authToken, projectID, includeChildProjects)
+    topLevelProjectName = projectList[0]["projectName"]
 
     SPDXVersion = "SPDX-2.2"
-    DataLicense = "CC0-1.0"
-    DocumentNamespaceBase = "http:/spdx.org/spdxdocs" 
-    Creator = "Tool: Revenera SCA - Code Insight %s" %releaseVersion
-
-    # Create a list of project data sorted by the project name at each level for report display  
-    # Add details for the parent node
-    nodeDetails = {}
-    nodeDetails["parent"] = "#"  # The root node
-    nodeDetails["projectName"] = projectName
-    nodeDetails["projectID"] = projectID
-    nodeDetails["projectLink"] = baseURL + "/codeinsight/FNCI#myprojectdetails/?id=" + str(projectHierarchy["id"]) + "&tab=projectInventory"
-
-    projectList.append(nodeDetails)
-    
-    applicationDetails = determine_application_details(baseURL, projectName, projectID, authToken)
-    applicationDocumentString = applicationDetails["applicationDocumentString"]
-
-
-    if includeChildProjects == "true":
-        projectList = create_project_hierarchy(projectHierarchy, projectID, projectList, baseURL)
-    else:
-        logger.debug("Child hierarchy disabled")
+    documentSPDXID = "SPDXRef-DOCUMENT"
+    documentNamespace  = "http:/spdx.org/spdxdocs/" + documentName + "-" + str(uuid.uuid1())
+    creator = "Tool: Revenera SCA - Code Insight %s" %releaseVersion
+    dataLicense = "CC0-1.0"   
 
     #  Gather the details for each project and summerize the data
     for project in projectList:
-
         projectID = project["projectID"]
         projectName = project["projectName"]
 
-        print("        Collect inventory for project: %s" %projectName)
-        logger.info("        Collect inventory for this project")
+        print("        Collect data for project: %s" %projectName)
+
+        if includeFileDetails:
+
+            # Collect file level details for files associated to this project
+            print("            Collect file level details.")
+            logger.info("            Collect file level details.")
+            filePathtoID, projectFileDetails, hasExtractedLicensingInfos = report_data_files.manage_file_details(baseURL, authToken, projectID, hasExtractedLicensingInfos, includeUnassociatedFiles)
+
+            # Create a full list of filename to ID mappings for non inventory items
+            if includeUnassociatedFiles:
+                filePathsNotInInventoryToID.update(filePathtoID["notInInventory"])
+
+            # Combine the files associated to this project to the larger list
+            files = files + list(projectFileDetails.values())     
+
+            print("            File level details for project has been collected")
+            logger.info("            File level details for project has been collected")
+
+
+        print("            Collect inventory details.")
+        logger.info("            Collect inventory details")
         projectInventory = common.api.project.get_project_inventory.get_project_inventory_details_without_vulnerabilities(baseURL, projectID, authToken)
-        print("        Inventory has been collected for this project")
-        logger.info("        Inventory has been collected for this project")
-
         inventoryItems = projectInventory["inventoryItems"]
-
-        # Create empty dictionary for project level data for this project
-        projectData[projectID] = {}
-        projectData[projectID]["projectName"] = projectName
-  
-        spdxPackages = {}
-        filesNotInComponents = []
-
-        print("        Process inventory details for this project.")
+        print("            Inventory has been collected.")
+        logger.info("            Inventory has been collected.")      
 
         for inventoryItem in inventoryItems:
-            
             inventoryType = inventoryItem["type"]
-           
 
             # Seperate out Inventory vs WIP or License Only items
             if inventoryType == "Component":
 
+                externalRefs = []  # For now just holds the purl but in the future could hold more items
                 componentName = re.sub('[^a-zA-Z0-9 \n\.]', '-', inventoryItem["componentName"]).lstrip('-') # Replace spec chars with dash
                 versionName = re.sub('[^a-zA-Z0-9 \n\.]', '-', inventoryItem["componentVersionName"]).lstrip('-')  # Replace spec chars with dash
                 inventoryID = inventoryItem["id"]
-                packageName = componentName + "-" + versionName + "-" + str(inventoryID)
-                SPDXID = "SPDXRef-Pkg-" + packageName
-                dependencyMap[inventoryID] = SPDXID
-                parentInventoryID = inventoryItem["parentInventoryID"]
+                packageName = componentName + "-" + versionName + "-" + str(inventoryID)  # Inventory ensure the value is unique
+                packageSPDXID = "SPDXRef-Pkg-" + packageName
+                
+                # Manage the homepage value
+                if inventoryItem["componentUrl"] != "" or inventoryItem["componentUrl"] is not None:
+                    homepage = inventoryItem["componentUrl"]
+                else:
+                    homepage = "NOASSERTION"
 
-                PackageComment = {}
-                PackageComment["inventoryItemName"] = inventoryItem["name"]
-                PackageComment["componentId"] = inventoryItem["componentId"]
-                PackageComment["componentVersionId"] = inventoryItem["componentVersionId"]
-                PackageComment["selectedLicenseId"] = inventoryItem["selectedLicenseId"]
-
-                logger.info("Processing %s" %(packageName))
-                filesInInventory = inventoryItem["filePaths"]
-
-                # Attempt to generate a purl string for the component
+                # Manage the purl value - To be replaced in 2023R4
                 try:
                     purlString = purl.get_purl_string(inventoryItem, baseURL, authToken)
                 except:
                     logger.warning("Unable to create purl string for inventory item %s." %packageName)
                     purlString = ""
 
-
-                # Contains the deatils for the package/inventory item
-                spdxPackages[packageName] ={}
-                spdxPackages[packageName]["reportName"] = str(projectID) + "-" + packageName + ".spdx"
-                spdxPackages[packageName]["packageName"] = componentName
-                spdxPackages[packageName]["packageVersion"] = versionName
-                spdxPackages[packageName]["parentInventoryID"] = parentInventoryID
-                spdxPackages[packageName]["SPDXID"] = SPDXID
-                spdxPackages[packageName]["PackageFileName"] = packageName
-                spdxPackages[packageName]["DocumentName"] =  projectName + "-" + packageName
-                spdxPackages[packageName]["DocumentNamespace"] = DocumentNamespaceBase + "/" + projectName + "-" + packageName + "-" + str(uuid.uuid1())
-                
-                if inventoryItem["componentUrl"] != "" or inventoryItem["componentUrl"] is not None:
-                    spdxPackages[packageName]["PackageHomePage"] = inventoryItem["componentUrl"]
-                else:
-                    spdxPackages[packageName]["PackageHomePage"] = "NOASSERTION"
-                
-                spdxPackages[packageName]["PackageDownloadLocation"] = "NOASSERTION"
-                spdxPackages[packageName]["PackageComment"] = PackageComment
-                spdxPackages[packageName]["containedFiles"] = filesInInventory
-                spdxPackages[packageName]["purlString"] = purlString
-
-                spdxPackages[packageName]["packageCopyrightText"] = "NOASSERTION"   # TODO - use a inventory custom field to store this?
-
-
+                if "@" in purlString:
+                    perlRef = {}
+                    perlRef["referenceCategory"] = "PACKAGE-MANAGER"
+                    perlRef["referenceLocator"] = purlString
+                    perlRef["referenceType"] = "purl"
+                    externalRefs.append(perlRef)
+     
                 ##########################################
-                # Manage Declared Licenses
-                logger.info("    Manage Declared/Possible Licenses")
-                PackageLicenseDeclared = []
-                try:
-                    possibleLicenses = inventoryItem["possibleLicenses"]
-                    for license in possibleLicenses:
-                        licenseName = license["licenseSPDXIdentifier"]
-                        possibleLicenseSPDXIdentifier = license["licenseSPDXIdentifier"]
-
-                        if licenseName == "Public Domain":
-                            logger.info("        Appending NONE to PackageLicenseDeclared for %s" %packageName)
-                            PackageLicenseDeclared.append("NONE")   
-
-                        elif possibleLicenseSPDXIdentifier in SPDX_license_mappings.LICENSEMAPPINGS:
-                            logger.info("        \"%s\" maps to SPDX ID \"%s\"" %(possibleLicenseSPDXIdentifier, SPDX_license_mappings.LICENSEMAPPINGS[possibleLicenseSPDXIdentifier]) )
-                            PackageLicenseDeclared.append(SPDX_license_mappings.LICENSEMAPPINGS[license["licenseSPDXIdentifier"]])
-                            
-                        else:
-                            # There was not a valid SPDX ID 
-                            logger.warning("        \"%s\" is not a valid SPDX identifier for Declared License. - Using LicenseRef." %(possibleLicenseSPDXIdentifier))
-                            possibleLicenseSPDXIdentifier = possibleLicenseSPDXIdentifier.split("(", 1)[0].rstrip()  # If there is a ( in string remove everything after and space
-                            possibleLicenseSPDXIdentifier = re.sub('[^a-zA-Z0-9 \n\.]', '-', possibleLicenseSPDXIdentifier) # Replace spec chars with dash
-                            possibleLicenseSPDXIdentifier = possibleLicenseSPDXIdentifier.replace(" ", "-") # Replace space with dash
-                            licenseReference = "LicenseRef-%s" %possibleLicenseSPDXIdentifier
-                            PackageLicenseDeclared.append(licenseReference)
-
-                            if possibleLicenseSPDXIdentifier in licenseReferencePacakgeIdentifiers:
-                                if "SCA Revenera - Declared license details for this package" not in licenseReferencePacakgeIdentifiers[possibleLicenseSPDXIdentifier]:
-                                    licenseReferencePacakgeIdentifiers[possibleLicenseSPDXIdentifier].append("SCA Revenera - Declared license details for this package")
-                            else:
-                                licenseReferencePacakgeIdentifiers[possibleLicenseSPDXIdentifier] = []
-                                licenseReferencePacakgeIdentifiers[possibleLicenseSPDXIdentifier].append("SCA Revenera - Declared license details for this package")
-
-
-
-                except:
-                    PackageLicenseDeclared.append(["NOASSERTION"])    
-
-                if len(PackageLicenseDeclared) == 0:
-                    PackageLicenseDeclared = "NOASSERTION"
-                elif len(PackageLicenseDeclared) == 1:
-                    PackageLicenseDeclared = PackageLicenseDeclared[0]
-                else:
-                    if "NONE" in PackageLicenseDeclared:
-                        PackageLicenseDeclared = "NONE"
-                    else:
-                        PackageLicenseDeclared = "(" + ' OR '.join(sorted(PackageLicenseDeclared)) + ")"
-
-
-                spdxPackages[packageName]["PackageLicenseDeclared"] = PackageLicenseDeclared
+                # Manage Declared Licenses - These are the "possible" license based on data collection
+                declaredLicenses, hasExtractedLicensingInfos = manage_package_declared_licenses(inventoryItem, hasExtractedLicensingInfos)
 
                 ##########################################
                 # Manage Concluded license
-                logger.info("    Manage Concluded License")
+                concludedLicense, hasExtractedLicensingInfos = manage_package_concluded_license(inventoryItem, hasExtractedLicensingInfos)
+               
+                packageDetails = {}
+                packageDetails["SPDXID"] = packageSPDXID
+                packageDetails["name"] = packageName
+                packageDetails["versionInfo"] = versionName
+                packageDetails["externalRefs"] = externalRefs
+                packageDetails["homepage"] = homepage
+                packageDetails["downloadLocation"] = "NOASSERTION"  # TODO - use a inventory custom field to store this?
+                packageDetails["copyrightText"] = "NOASSERTION"     # TODO - use a inventory custom field to store this?
+                packageDetails["licenseDeclared"] = declaredLicenses
+                packageDetails["licenseConcluded"] = concludedLicense
 
-                selectedLicenseSPDXIdentifier = inventoryItem["selectedLicenseSPDXIdentifier"]
-                selectedLicenseName = inventoryItem["selectedLicenseName"]
-
-                # Need to make sure that there is a valid SPDX license mapping
-                if selectedLicenseName == "Public Domain":
-                    logger.info("        Setting PackageLicenseConcluded to NONE for %s" %packageName)
-                    PackageLicenseConcluded = "NONE"
-                elif selectedLicenseName == "I don't know":
-                    PackageLicenseConcluded = "NOASSERTION"
-                elif selectedLicenseSPDXIdentifier in SPDX_license_mappings.LICENSEMAPPINGS:
-                    logger.info("        \"%s\" maps to SPDX ID: \"%s\"" %(selectedLicenseSPDXIdentifier, SPDX_license_mappings.LICENSEMAPPINGS[selectedLicenseSPDXIdentifier] ))
-                    PackageLicenseConcluded = (SPDX_license_mappings.LICENSEMAPPINGS[selectedLicenseSPDXIdentifier])
-                else:
-                    # There was not a valid SPDX license name returned
-                    logger.warning("        \"%s\" is not a valid SPDX identifier for Concluded License. - Using LicenseRef." %(selectedLicenseSPDXIdentifier))
-                    selectedLicenseSPDXIdentifier = selectedLicenseSPDXIdentifier.split("(", 1)[0].rstrip()  # If there is a ( in string remove everything after and space
-                    selectedLicenseSPDXIdentifier = re.sub('[^a-zA-Z0-9 \n\.]', '-', selectedLicenseSPDXIdentifier) # Replace spec chars with dash
-                    selectedLicenseSPDXIdentifier = selectedLicenseSPDXIdentifier.replace(" ", "-") # Replace space with dash
-                    licenseReference = "LicenseRef-%s" %selectedLicenseSPDXIdentifier
-                    PackageLicenseConcluded = licenseReference 
-
-                    if selectedLicenseSPDXIdentifier in licenseReferencePacakgeIdentifiers:
-                        if "SCA Revenera - Concluded license details for this package" not in licenseReferencePacakgeIdentifiers[selectedLicenseSPDXIdentifier]:
-                            licenseReferencePacakgeIdentifiers[selectedLicenseSPDXIdentifier].append("SCA Revenera - Concluded license details for this package")
-                    else:
-                        licenseReferencePacakgeIdentifiers[selectedLicenseSPDXIdentifier] = []
-                        licenseReferencePacakgeIdentifiers[selectedLicenseSPDXIdentifier].append("SCA Revenera - Concluded license details for this package")
-                       
-                spdxPackages[packageName]["PackageLicenseConcluded"] = PackageLicenseConcluded
-
-
-
+                # Manage file details related to this package
+                filePaths = inventoryItem["filePaths"]
                 
-            else:
-                # This is a WIP or License only item so take the files assocated here and include them in
-                # in the files without inventory bucket
-                for file in inventoryItem["filePaths"]:
-                    filesNotInComponents.append(file)
-
-        print("        Completed processing inventory details for this project.")
-
-        # Create a package to hold files not associated to an inventory item directly
-        if includeUnassociatedFiles:
-            nonInventoryPackageName = "OtherFiles"
-            spdxPackages[nonInventoryPackageName] ={}
-            spdxPackages[nonInventoryPackageName]["reportName"] = str(projectID)  + "-" + nonInventoryPackageName + ".spdx"
-            spdxPackages[nonInventoryPackageName]["packageName"] = nonInventoryPackageName
-            spdxPackages[nonInventoryPackageName]["packageVersion"] = "N/A"
-            spdxPackages[nonInventoryPackageName]["parentInventoryID"] = "N/A"
-            spdxPackages[nonInventoryPackageName]["containedFiles"] = []
-            spdxPackages[nonInventoryPackageName]["SPDXID"] = "SPDXRef-Pkg-" + nonInventoryPackageName
-            spdxPackages[nonInventoryPackageName]["PackageFileName"] = nonInventoryPackageName
-            spdxPackages[nonInventoryPackageName]["DocumentName"] =  projectName + "-" + nonInventoryPackageName.replace(" ", "_")
-            spdxPackages[nonInventoryPackageName]["DocumentNamespace"] = DocumentNamespaceBase + "/" + projectName + "-" + nonInventoryPackageName.replace(" ", "_") + "-" + str(uuid.uuid1())
-            spdxPackages[nonInventoryPackageName]["PackageHomePage"] = "NOASSERTION"
-            spdxPackages[nonInventoryPackageName]["PackageDownloadLocation"] = "NOASSERTION"
-            spdxPackages[nonInventoryPackageName]["PackageLicenseConcluded"] = "NOASSERTION"
-            spdxPackages[nonInventoryPackageName]["PackageLicenseDeclared"] = "NOASSERTION"
-            spdxPackages[nonInventoryPackageName]["packageCopyrightText"] = "NOASSERTION"
-    
-        ############################################################################
-        # Dictionary to contain all of the file specific data
-        fileDetails = {}
-
-        # Collect the copyright/license data per file and create dict based on
-        print("        Get all file evidence for this project")
-        logger.info("Get all file evidence for this project")
-        projectEvidenceDetails = common.api.project.get_project_evidence.get_project_evidence(baseURL, projectID, authToken)
-        print("        File evidence for this project has been received") 
-        logger.info("File evidence for this project has been received") 
- 
-        # Dictionary to contain all of the file specific data
-        fileEvidence = {}
-
-        for fileEvidenceDetails in projectEvidenceDetails["data"]:
-            remoteFile = bool(fileEvidenceDetails["remote"])
-            scannedFileId = fileEvidenceDetails["scannedFileId"]
-            filePath = fileEvidenceDetails["filePath"]
-            copyrightEvidenceFound= fileEvidenceDetails["copyRightMatches"]
-            licenseEvidenceFound = list(set(fileEvidenceDetails["licenseMatches"]))
-
-            # Normalize the copyrights in case there are any encoding issues 
-            copyrightEvidenceFound = [unicodedata.normalize('NFKD', x).encode('ASCII', 'ignore').decode('utf-8') for x in copyrightEvidenceFound]
-       
-            # Create a unique identifier based on fileID and scan location
-            uniqueFileID = str(scannedFileId) + ("-r" if remoteFile else "-s")
-     
-            logger.info("        File level evidence for %s - %s" %(uniqueFileID, filePath))
-
-            ##########################################
-            # Manage File Level licenses
-            if licenseEvidenceFound:
-                logger.info("            License evidence discovered")
-
-                # Remove duplicates and sort data
-                licenseEvidenceFound = sorted(list(dict.fromkeys(licenseEvidenceFound)))
-                # Remove Public Domain license if present
-                if  "Public Domain" in licenseEvidenceFound: 
-                    licenseEvidenceFound.remove("Public Domain")  
-
-                # The license evidence is not in SPDX form so consolidate and map       
-                for index, licenseEvidence in enumerate(licenseEvidenceFound):
-                    if licenseEvidence in SPDX_license_mappings.LICENSEMAPPINGS:
-                        licenseEvidenceFound[index] = SPDX_license_mappings.LICENSEMAPPINGS[licenseEvidence]
-                        logger.info("                \"%s\" maps to SPDX ID: \"%s\"" %(licenseEvidence, SPDX_license_mappings.LICENSEMAPPINGS[licenseEvidence] ))
-                    else:
-                        # There was not a valid SPDX license name returned
-                        logger.warning("                \"%s\" is not a valid SPDX identifier for file level license. - Using LicenseRef." %(licenseEvidence))
-                        licenseEvidence = licenseEvidence.split("(", 1)[0].rstrip()  # If there is a ( in string remove everything after and space
-                        licenseEvidence = re.sub('[^a-zA-Z0-9 \n\.]', '-', licenseEvidence) # Replace spec chars with dash
-                        licenseEvidence = licenseEvidence.replace(" ", "-") # Replace space with dash
-                        licenseReference = "LicenseRef-%s" %licenseEvidence
-                        licenseEvidenceFound[index]  = licenseReference
-
-                        if licenseEvidence in licenseReferencePacakgeIdentifiers:
-                            if "SCA Revenera - Observed license details for this file" not in licenseReferencePacakgeIdentifiers[licenseEvidence]:
-                                licenseReferencePacakgeIdentifiers[licenseEvidence].append("SCA Revenera - Observed license details for this file")
-                        else:
-                            licenseReferencePacakgeIdentifiers[licenseEvidence] = []
-                            licenseReferencePacakgeIdentifiers[licenseEvidence].append("SCA Revenera - Observed license details for this file")
-
-           
-            else:
-                logger.info("            No license evidence discovered")
-
-            # Remove duplicates
-            licenseEvidenceFound = sorted(list(dict.fromkeys(licenseEvidenceFound)))
-            
-            # if there is no file license evidence then...
-            if not len(licenseEvidenceFound):
-                licenseEvidenceFound = ["NOASSERTION"]
-
-            ##########################################
-            # Manage File Level Copyrights
-            if copyrightEvidenceFound:
-                logger.info("            Copyright evidence discovered")
-                # The response has the copyright details as a list so convert to a string
-                copyrightEvidenceFound = " | ".join(copyrightEvidenceFound)
-            else:
-                logger.info("            No copyright evidence discovered")
-                copyrightEvidenceFound = "NONE"
-
-            fileEvidence[uniqueFileID] = {}
-            fileEvidence[uniqueFileID]["Filename"]= filePath
-            fileEvidence[uniqueFileID]["copyrightEvidenceFound"]= copyrightEvidenceFound
-            fileEvidence[uniqueFileID]["licenseEvidenceFound"]= licenseEvidenceFound     
-
-        # Collect a list of the scanned files
-        print("        Collect data for all scanned files for this project")
-        logger.info("Collect data for all scanned files for this project")
-        scannedFiles = common.api.project.get_scanned_files.get_scanned_files_details_with_MD5_and_SHA1(baseURL, projectID, authToken)
-        print("        Data for %s scanned files for this project has been received." %len(scannedFiles))
-        logger.info("Data for %s scanned files for this project has been received." %len(scannedFiles))
-
-        # A dict to allow going from file path to unique ID (could be mulitple?)
-        filePathToID = {}
-        # Cycle through each scanned file
-        
-        for scannedFile in scannedFiles:
-            scannedFileDetails = {}
-            remoteFile = scannedFile["remote"]
-            scannedFileId = scannedFile["fileId"]
-            FileName = scannedFile["filePath"]  
-            inInventory = scannedFile["inInventory"]  
-
-            logger.debug("    Scanned File: %s" %FileName)
-
-            # Create a unique identifier based on fileID and scan location
-            if remoteFile == "false":
-                uniqueFileID = str(scannedFileId) + "-s"
-            else:
-                uniqueFileID = str(scannedFileId) + "-r"
-
-            logger.debug("        uniqueFileID: %s" %uniqueFileID)    
-
-            # Add the ID to a list or create the list in the first place
-            try:
-               filePathToID[FileName].append(uniqueFileID)
-            except:
-                filePathToID[FileName] = [uniqueFileID]      
-
-            # Check to see if the file was associated to an WIP or License only item
-            # If it is set the inInvenetory flag to false
-            if FileName in filesNotInComponents:
-                inInventory = "false"
-
-            # Is the file already in inventory or do we need to deal wtih it?
-            if inInventory == "false" and includeUnassociatedFiles:
-                try:
-                    spdxPackages[nonInventoryPackageName]["containedFiles"].append(FileName)
-                except:
-                    spdxPackages[nonInventoryPackageName]["containedFiles"] = [FileName]
-
-            # Determine the file type.  Default to any specific mappings
-            filename, file_extension = os.path.splitext(FileName)
-            if file_extension in filetype_mappings.fileTypeMappings:
-                scannedFileDetails["FileType"] = filetype_mappings.fileTypeMappings[file_extension]
-
-            else:
-                # See if there is a MIME type associated to the file
-                fileType = mimetypes.MimeTypes().guess_type(FileName)[0]
-
-                if fileType:
-                    scannedFileDetails["FileType"] = fileType.split("/")[0].upper()
+                # Are there any files assocaited to this inventory item?
+                if len(filePaths) == 0 or not includeFileDetails: 
+                    packageDetails["filesAnalyzed"] = False
                 else:
-                    logger.info("        Unmapped file type extension for file: %s" %FileName)
-                    scannedFileDetails["FileType"] = "OTHER"
-            
-            scannedFileDetails["FileLicenseConcluded"] = "NOASSERTION"
-            scannedFileDetails["FileName"] = FileName
-            scannedFileDetails["fileId"] = uniqueFileID
-            scannedFileDetails["fileMD5"] = scannedFile["fileMD5"]
 
-            # See if there is a SHA1 value and if not create one from the MD5 value
-            if "fileSHA1" in scannedFile:
-                fileSHA1 = scannedFile["fileSHA1"]
-                logger.debug("        fileSHA1: %s" %fileSHA1)  
+                    licenseInfoFromFiles = []
+                    fileHashes = []
+                    for filePath in filePaths:
+                        uniqueFileID = filePathtoID["inInventory"][filePath]["uniqueFileID"]
+                        fileDetail = projectFileDetails[uniqueFileID]
+                        fileHashes.append(filePathtoID["inInventory"][filePath]["fileSHA1"])
 
-            if fileSHA1 is None:
-                logger.warning("        %s does not have a SHA1 calculation" %FileName)
-                fileSHA1 = hashlib.sha1(scannedFile["fileMD5"].encode('utf-8')).hexdigest()
-            else:
-                fileSHA1 = scannedFile["fileSHA1"]
+                        fileSPDXID = fileDetail["SPDXID"]
 
+                        # Define the relationship of the file to the package
+                        fileRelationship = {}
+                        fileRelationship["spdxElementId"] = packageSPDXID
+                        fileRelationship["relationshipType"] = "CONTAINS"
+                        fileRelationship["relatedSpdxElement"] = fileSPDXID
+                        relationships.append(fileRelationship)
 
-            scannedFileDetails["fileSHA1"]  = fileSHA1
+                        # Surfaces the file level evidence to the assocaited package
+                        licenseInfoFromFiles = licenseInfoFromFiles + fileDetail["licenseInfoInFiles"]
 
-            scannedFileDetails["SPDXID"] = "SPDXRef-File-" + uniqueFileID
+                    # Create a hash of the file hashes for PackageVerificationCode 
+                    try:
+                        stringHash = ''.join(sorted(fileHashes))
+                    except:
+                        logger.error("Failure sorting file hashes for %s" %packageName)
+                        logger.debug(stringHash)
+                        stringHash = ''.join(fileHashes)
+                    
+                    packageVerificationCodeValue = (hashlib.sha1(stringHash.encode('utf-8'))).hexdigest()
 
-            fileContainsEvidence = scannedFile["containsEvidence"]   
+                    # Was there any file level information
+                    if len(licenseInfoFromFiles) == 0 :
+                        licenseInfoFromFiles = ["NOASSERTION"]
+                    else:
+                        licenseInfoFromFiles = sorted(list(dict.fromkeys(licenseInfoFromFiles)))
+                    
+                    packageDetails["licenseInfoFromFiles"] = licenseInfoFromFiles
+                    packageDetails["packageVerificationCode"] = {}
+                    packageDetails["packageVerificationCode"]["packageVerificationCodeValue"] = packageVerificationCodeValue
+             
+                packages.append(packageDetails)
 
-            if fileContainsEvidence:
-                try:
-                    scannedFileDetails["FileCopyrightText"] = fileEvidence[uniqueFileID]["copyrightEvidenceFound"]
-                except:
-                    scannedFileDetails["FileCopyrightText"] = ["NOASSERTION"]
-                try:
-                    scannedFileDetails["LicenseInfoInFile"] = fileEvidence[uniqueFileID]["licenseEvidenceFound"]
-                except:
-                    scannedFileDetails["LicenseInfoInFile"] = []
-                   
-
-            fileDetails[uniqueFileID] = scannedFileDetails
-        # Are there any files not asscoaited to an inventory item?
-        if includeUnassociatedFiles:
-            if not len(spdxPackages[nonInventoryPackageName]["containedFiles"]):
-                logger.debug("All files are asscoiated to at least one inventory item")
-                spdxPackages.pop(nonInventoryPackageName)
-
-        # Merge the results to map each package (inventory item) with the assocaited files
-        for package in spdxPackages:
+                # Manange the relationship for this pacakge to the docuemnt
+                packageRelationship = {}
+                packageRelationship["spdxElementId"] = documentSPDXID
+                packageRelationship["relationshipType"] = "DESCRIBES"
+                packageRelationship["relatedSpdxElement"] = packageSPDXID
+                relationships.append(packageRelationship)
         
-            spdxPackages[package]["files"] = {}  
+        # See if there are any files that are not contained in inventory
+        if includeFileDetails:
+            # Manage the items from this project that were not associated to inventory
+            for filePath in filePathtoID["notInInventory"]:
+                uniqueFileID = filePathtoID["notInInventory"][filePath]["uniqueFileID"]
+                filesNotInInventory.append(projectFileDetails[uniqueFileID])
 
-            for file in spdxPackages[package]["containedFiles"]:
 
-                # Do we have data for this file?
-                fileIDList = filePathToID[file]
+    ##############################
+    if includeUnassociatedFiles:
+        unassociatedFilesPackage, unassociatedFilesRelationships = manage_unassociated_files(filesNotInInventory, filePathsNotInInventoryToID, documentSPDXID)
+        packages.append(unassociatedFilesPackage)
+        relationships= relationships + unassociatedFilesRelationships
 
-                # It is be possible to have multiple files with the same path
-                for fileID in fileIDList:
-                    spdxPackages[package]["files"][file] = fileDetails[fileID]
 
-            fileHashes = []
-            fileLicenses = []
+    # Clean up the hasExtractedLicensingInfos comment field to remove the array and make a string
+    for extractedLicense in hasExtractedLicensingInfos:
+        comment =  hasExtractedLicensingInfos[extractedLicense]["comment"]
+        hasExtractedLicensingInfos[extractedLicense]["comment"] = " | ".join(comment)
 
-            # Are there any files assocaited?
-            if len(spdxPackages[package]["files"]) > 0:
+    # Build up the top level dictionary with the required elements
+    reportDetails["SPDXID"] =  documentSPDXID
+    reportDetails["spdxVersion"] =  SPDXVersion
+    reportDetails["creationInfo"] = {}
+    reportDetails["creationInfo"]["created"] = reportData["spdxTimeStamp"]
+    reportDetails["creationInfo"]["creators"] = [creator]
 
-                for file in spdxPackages[package]["files"]:
-                    # Create a list of SHA1 values to hash
-                    fileHashes.append(spdxPackages[package]["files"][file]["fileSHA1"])
+    reportDetails["name"] =  documentName
+    reportDetails["dataLicense"] = dataLicense
+    reportDetails["documentNamespace"] = documentNamespace
+
+    reportDetails["hasExtractedLicensingInfos"] = list(hasExtractedLicensingInfos.values())  # remove the keys since not needed
+    reportDetails["packages"] = packages
     
-                    # Collect licesne info from files
-                    fileLicenses.extend(spdxPackages[package]["files"][file]["LicenseInfoInFile"])
+    if includeFileDetails:
+        reportDetails["files"] = files
 
-                # Create a hash of the file hashes for PackageVerificationCode 
-                try:
-                    stringHash = ''.join(sorted(fileHashes))
-                except:
-                    logger.error("Failure sorting file hashes for %s" %package)
-                    logger.debug(stringHash)
-                    stringHash = ''.join(fileHashes)
+    reportDetails["relationships"] = relationships
 
-                spdxPackages[package]["PackageVerificationCode"] = (hashlib.sha1(stringHash.encode('utf-8'))).hexdigest()
-                spdxPackages[package]["PackageLicenseInfoFromFiles"] = sorted(set(fileLicenses))
-            else:
-                logger.info("No files assocaited to package %s" %package)
-
-        projectData[projectID]["spdxPackages"] = spdxPackages
-        projectData[projectID]["DocumentName"] = applicationDocumentString.replace(" ", "_") + "-" + str(projectID)
-        projectData[projectID]["DocumentNamespace"] = DocumentNamespaceBase + "/" + applicationDocumentString.replace(" ", "_") + "-" + str(projectID) + "-" + str(uuid.uuid1())
-
-    SPDXData = {}
-    SPDXData["SPDXVersion"] = SPDXVersion
-    SPDXData["DataLicense"] = DataLicense
-    SPDXData["Creator"] = Creator
-    SPDXData["projectData"] = projectData
-    SPDXData["DocumentNamespaceBase"] = DocumentNamespaceBase
-    SPDXData["licenseReferencePacakgeIdentifiers"] = licenseReferencePacakgeIdentifiers
-    SPDXData["dependencyMap"] = dependencyMap
-
-    reportData["projectName"] =  projectHierarchy["name"]
-    reportData["applicationDocumentString"] =  applicationDocumentString
-    reportData["projectID"] = projectHierarchy["id"]
+    reportData["topLevelProjectName"] = topLevelProjectName
+    reportData["reportDetails"] = reportDetails
     reportData["projectList"] = projectList
-    reportData["SPDXData"] = SPDXData
-    reportData["applicationDetails"]=applicationDetails
 
     return reportData
 
+#----------------------------------------------
+def manage_package_declared_licenses(inventoryItem, hasExtractedLicensingInfos):
 
-#----------------------------------------------#
-def create_project_hierarchy(project, parentID, projectList, baseURL):
-    logger.debug("Entering create_project_hierarchy")
+    declaredLicenses = [] # There could be mulitple licenses so create a list
 
-    # Are there more child projects for this project?
-    if len(project["childProject"]):
+    try:
+        possibleLicenses = inventoryItem["possibleLicenses"]
+    except:
+        possibleLicenses = []
+        declaredLicenses.append("NO ASSERTION")
 
-        # Sort by project name of child projects
-        for childProject in sorted(project["childProject"], key = lambda i: i['name'] ) :
+    for license in possibleLicenses:
+        licenseName = license["licenseSPDXIdentifier"]
+        possibleLicenseSPDXIdentifier = license["licenseSPDXIdentifier"]
 
-            nodeDetails = {}
-            nodeDetails["projectID"] = str(childProject["id"])
-            nodeDetails["parent"] = parentID
-            nodeDetails["projectName"] = childProject["name"]
-            nodeDetails["projectLink"] = baseURL + "/codeinsight/FNCI#myprojectdetails/?id=" + str(childProject["id"]) + "&tab=projectInventory"
+        if licenseName == "Public Domain":
+            logger.info("        Added to NONE declaredLicenses since Public Domain.")
+            declaredLicenses.append("NONE")
+        
+        elif possibleLicenseSPDXIdentifier in SPDX_license_mappings.LICENSEMAPPINGS:
+            logger.info("        \"%s\" maps to SPDX ID: \"%s\"" %(possibleLicenseSPDXIdentifier, SPDX_license_mappings.LICENSEMAPPINGS[possibleLicenseSPDXIdentifier]) )
+            declaredLicenses.append(SPDX_license_mappings.LICENSEMAPPINGS[license["licenseSPDXIdentifier"]])
 
-            projectList.append( nodeDetails )
-
-            create_project_hierarchy(childProject, childProject["id"], projectList, baseURL)
-
-    return projectList
-
-
-
-#----------------------------------------------#
-def determine_application_details(baseURL, projectName, projectID, authToken):
-    logger.debug("Entering determine_application_details.")
-    # Create a application name for the report if the custom fields are populated
-    # Default values
-    applicationName = projectName
-    applicationVersion = ""
-    applicationPublisher = ""
-    applicationDocumentString = ""
-
-    projectInformation = common.api.project.get_project_information.get_project_information_summary(baseURL, projectID, authToken)
-
-    # Project level custom fields added in 2022R1
-    if "customFields" in projectInformation:
-        customFields = projectInformation["customFields"]
-
-        # See if the custom project fields were propulated for this project
-        for customField in customFields:
-
-            # Is there the reqired custom field available?
-            if customField["fieldLabel"] == "Application Name":
-                if customField["value"]:
-                    applicationName = customField["value"]
-
-            # Is the custom version field available?
-            if customField["fieldLabel"] == "Application Version":
-                if customField["value"]:
-                    applicationVersion = customField["value"]     
-
-            # Is the custom Publisher field available?
-            if customField["fieldLabel"] == "Application Publisher":
-                if customField["value"]:
-                    applicationPublisher = customField["value"]    
-
-    # Join the custom values to create the application name for the report artifacts
-    if applicationName != projectName:
-        if applicationVersion != "":
-            applicationNameVersion = applicationName + " - " + applicationVersion
         else:
-            applicationNameVersion = applicationName
+            # There was not a valid SPDX ID 
+            logger.warning("        \"%s\" is not a valid SPDX identifier for Declared License. - Using LicenseRef." %(possibleLicenseSPDXIdentifier))
+
+            possibleLicenseSPDXIdentifier = possibleLicenseSPDXIdentifier.split("(", 1)[0].rstrip()  # If there is a ( in string remove everything after and space
+            possibleLicenseSPDXIdentifier = re.sub('[^a-zA-Z0-9 \n\.]', '-', possibleLicenseSPDXIdentifier) # Replace spec chars with dash
+            possibleLicenseSPDXIdentifier = possibleLicenseSPDXIdentifier.replace(" ", "-") # Replace space with dash
+            licenseReference = "LicenseRef-%s" %possibleLicenseSPDXIdentifier
+            declaredLicenses.append(licenseReference)
+            declaredLicenseComment = "SCA Revenera - Declared license details for this package"
+
+            # Since this is an non SPDX ID we need to add to the hasExtractedLicensingInfos section
+            if licenseReference not in hasExtractedLicensingInfos:
+                # It's not there so create a new entry
+                hasExtractedLicensingInfos[licenseReference] = {}
+                hasExtractedLicensingInfos[licenseReference]["licenseId"] = licenseReference
+                hasExtractedLicensingInfos[licenseReference]["name"] = possibleLicenseSPDXIdentifier
+                hasExtractedLicensingInfos[licenseReference]["extractedText"] = possibleLicenseSPDXIdentifier
+                hasExtractedLicensingInfos[licenseReference]["comment"] = [declaredLicenseComment]
+            else:
+                # It's aready there so but is the comment the same as any previous entry
+                if declaredLicenseComment not in hasExtractedLicensingInfos[licenseReference]["comment"]:
+                    hasExtractedLicensingInfos[licenseReference]["comment"].append(declaredLicenseComment)
+
+    #  Clean up the declared licenses 
+    if len(declaredLicenses) == 0:
+        declaredLicenses = "NOASSERTION"
+    elif len(declaredLicenses) == 1:
+        declaredLicenses = declaredLicenses[0]
     else:
-        applicationNameVersion = projectName
+        if "NONE" in declaredLicenses:
+            declaredLicenses = "NONE"
+        else:
+            declaredLicenses = "(" + ' OR '.join(sorted(declaredLicenses)) + ")"
 
-    if applicationPublisher != "":
-        applicationDocumentString = applicationPublisher
+    return declaredLicenses, hasExtractedLicensingInfos
+
+
+#----------------------------------------------
+def manage_package_concluded_license(inventoryItem, hasExtractedLicensingInfos):
+
+    selectedLicenseSPDXIdentifier = inventoryItem["selectedLicenseSPDXIdentifier"]
+    selectedLicenseName = inventoryItem["selectedLicenseName"]
+
+    # Need to make sure that there is a valid SPDX license mapping
+    if selectedLicenseName == "Public Domain":
+        logger.info("        Setting concludedLicense to NONE since Public Domain.")
+        concludedLicense = "NONE"
+
+    elif selectedLicenseName == "I don't know":
+        concludedLicense = "NOASSERTION"
+
+    elif selectedLicenseSPDXIdentifier in SPDX_license_mappings.LICENSEMAPPINGS:
+        logger.info("        \"%s\" maps to SPDX ID: \"%s\"" %(selectedLicenseSPDXIdentifier, SPDX_license_mappings.LICENSEMAPPINGS[selectedLicenseSPDXIdentifier] ))
+        concludedLicense = (SPDX_license_mappings.LICENSEMAPPINGS[selectedLicenseSPDXIdentifier])
+
+    else:
+        # There was not a valid SPDX license name returned
+        logger.warning("        \"%s\" is not a valid SPDX identifier for Concluded License. - Using LicenseRef." %(selectedLicenseSPDXIdentifier))
+
+        selectedLicenseSPDXIdentifier = selectedLicenseSPDXIdentifier.split("(", 1)[0].rstrip()  # If there is a ( in string remove everything after and space
+        selectedLicenseSPDXIdentifier = re.sub('[^a-zA-Z0-9 \n\.]', '-', selectedLicenseSPDXIdentifier) # Replace spec chars with dash
+        selectedLicenseSPDXIdentifier = selectedLicenseSPDXIdentifier.replace(" ", "-") # Replace space with dash
+        licenseReference = "LicenseRef-%s" %selectedLicenseSPDXIdentifier
+        concludedLicense = licenseReference 
+
+        concludedLicenseComment = "SCA Revenera - Concluded license details for this package"
+
+        # Since this is an non SPDX ID we need to add to the hasExtractedLicensingInfos section
+        if licenseReference not in hasExtractedLicensingInfos:
+            # It's not there so create a new entry
+            hasExtractedLicensingInfos[licenseReference] = {}
+            hasExtractedLicensingInfos[licenseReference]["licenseId"] = licenseReference
+            hasExtractedLicensingInfos[licenseReference]["name"] = selectedLicenseSPDXIdentifier
+            hasExtractedLicensingInfos[licenseReference]["extractedText"] = selectedLicenseSPDXIdentifier
+            hasExtractedLicensingInfos[licenseReference]["comment"] = [concludedLicenseComment]
+        else:
+            # It's aready there so but is the comment the same as any previous entry
+            if concludedLicenseComment not in hasExtractedLicensingInfos[licenseReference]["comment"]:
+                hasExtractedLicensingInfos[licenseReference]["comment"].append(concludedLicenseComment)
+
+    return concludedLicense, hasExtractedLicensingInfos
+
+
+#-------------------------------------------------------
+def manage_unassociated_files(filesNotInInventory, filePathtoID, documentSPDXID):
+
+    packageDetails = {}
+    relationships = []
+    fileHashes = []
+    licenseInfoFromFiles = []
+
+    unassociatedFilesPackageName = "OtherFiles"
+    packageSPDXID = "SPDXRef-Pkg-" + unassociatedFilesPackageName
+
+    # Manange the relationship for this pacakge to the docuemnt
+    packageRelationship = {}
+    packageRelationship["spdxElementId"] = documentSPDXID
+    packageRelationship["relationshipType"] = "DESCRIBES"
+    packageRelationship["relatedSpdxElement"] = packageSPDXID
+    relationships.append(packageRelationship)
+
+    for fileDetails in filesNotInInventory:
+ 
+        fileSPDXID = fileDetails["SPDXID"]
+        fileName = fileDetails["fileName"]
+        
+        fileHashes.append(filePathtoID[fileName]["fileSHA1"])
+
+        # Surfaces the file level evidence to the assocaited package
+        licenseInfoFromFiles = licenseInfoFromFiles + fileDetails["licenseInfoInFiles"]
+  
+       # Define the relationship of the file to the package
+        fileRelationship = {}
+        fileRelationship["spdxElementId"] = packageSPDXID
+        fileRelationship["relationshipType"] = "CONTAINS"
+        fileRelationship["relatedSpdxElement"] = fileSPDXID
+        relationships.append(fileRelationship)
+
+    # Create a hash of the file hashes for PackageVerificationCode 
+    try:
+        stringHash = ''.join(sorted(fileHashes))
+    except:
+        logger.error("Failure sorting file hashes for %s" %unassociatedFilesPackageName)
+        logger.debug(stringHash)
+        stringHash = ''.join(fileHashes)
     
+    packageVerificationCodeValue = (hashlib.sha1(stringHash.encode('utf-8'))).hexdigest()
 
-    # This will either be the project name or the supplied application name
-    applicationDocumentString += "_" + applicationName
+    # Was there any file level information
+    if len(licenseInfoFromFiles) == 0 :
+        licenseInfoFromFiles = ["NOASSERTION"]
+    else:
+        licenseInfoFromFiles = sorted(list(dict.fromkeys(licenseInfoFromFiles)))
 
-    if applicationVersion != "":
-        applicationDocumentString += "_" + applicationVersion
+    packageDetails["SPDXID"] = packageSPDXID
+    packageDetails["name"] = unassociatedFilesPackageName
+    packageDetails["versionInfo"] = "N/A"
+    packageDetails["homepage"] = "NOASSERTION"
+    packageDetails["downloadLocation"] = "NOASSERTION"  # TODO - use a inventory custom field to store this?
+    packageDetails["copyrightText"] = "NOASSERTION"     # TODO - use a inventory custom field to store this?
+    packageDetails["licenseDeclared"] = "NOASSERTION"
+    packageDetails["licenseConcluded"] = "NOASSERTION"
+    packageDetails["licenseInfoFromFiles"] = licenseInfoFromFiles
+    packageDetails["packageVerificationCode"] = {}
+    packageDetails["packageVerificationCode"]["packageVerificationCodeValue"] = packageVerificationCodeValue
 
-
-    applicationDetails = {}
-    applicationDetails["applicationName"] = applicationName
-    applicationDetails["applicationVersion"] = applicationVersion
-    applicationDetails["applicationPublisher"] = applicationPublisher
-    applicationDetails["applicationNameVersion"] = applicationNameVersion
-    applicationDetails["applicationDocumentString"] = applicationDocumentString
-
-    logger.info("    applicationDetails: %s" %applicationDetails)
-
-    return applicationDetails
+    return packageDetails, relationships

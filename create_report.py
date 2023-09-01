@@ -7,13 +7,8 @@ Author : sgeary
 Created On : Wed Oct 21 2020
 File : create_report.py
 '''
-import sys
-import logging
-import argparse
-import os
+import sys, os, logging, argparse, json, re
 from datetime import datetime
-import json
-import re
 
 import _version
 import report_data
@@ -116,6 +111,7 @@ def main():
 	logger.debug("    reportOptions:  %s" %reportOptions)
 
 	reportData = {}
+	reportData["projectID"] = projectID
 	reportData["reportName"] = reportName
 	reportData["reportVersion"] = reportVersion
 	reportData["reportOptions"] = reportOptions
@@ -141,7 +137,7 @@ def main():
 		reportData = report_data.gather_data_for_report(baseURL, projectID, authToken, reportData)
 		print("    Report data has been collected")
 
-		projectName = reportData["projectName"]
+		projectName = reportData["topLevelProjectName"]
 		projectNameForFile = re.sub(r"[^a-zA-Z0-9]+", '-', projectName )  # Remove special characters from project name for artifacts
 
 		# Are there child projects involved?  If so have the artifact file names reflect this fact
@@ -188,14 +184,22 @@ def verifyOptions(reportOptions):
 	falseOptions = ["false", "f", "no", "n"]
 
 	includeChildProjects = reportOptions["includeChildProjects"]
+	includeFileDetails = reportOptions["includeFileDetails"]
 	includeUnassociatedFiles = reportOptions["includeUnassociatedFiles"]
 
 	if includeChildProjects.lower() in trueOptions:
-		reportOptions["includeChildProjects"] = "true"
+		reportOptions["includeChildProjects"] = True
 	elif includeChildProjects.lower() in falseOptions:
-		reportOptions["includeChildProjects"] = "false"
+		reportOptions["includeChildProjects"] = False
 	else:
 		reportOptions["errorMsg"].append("Invalid option for including child projects: <b>%s</b>.  Valid options are <b>True/False</b>" %includeChildProjects)
+
+	if includeFileDetails.lower() in trueOptions:
+		reportOptions["includeFileDetails"] = True
+	elif includeFileDetails.lower() in falseOptions:
+		reportOptions["includeFileDetails"] = False
+	else:
+		reportOptions["errorMsg"].append("Invalid option for including file details files: <b>%s</b>.  Valid options are <b>True/False</b>" %includeFileDetails)
 
 	if includeUnassociatedFiles.lower() in trueOptions:
 		reportOptions["includeUnassociatedFiles"] = True
@@ -203,7 +207,6 @@ def verifyOptions(reportOptions):
 		reportOptions["includeUnassociatedFiles"] = False
 	else:
 		reportOptions["errorMsg"].append("Invalid option for including unassocated files: <b>%s</b>.  Valid options are <b>True/False</b>" %includeUnassociatedFiles)
-
 
 	if not reportOptions["errorMsg"]:
 		reportOptions.pop('errorMsg', None)

@@ -10,8 +10,7 @@ File : report_artifacts.py
 
 import logging
 
-import report_artifacts_tag_value
-import report_artifacts_summary
+import report_artifacts_json
 
 logger = logging.getLogger(__name__)
 
@@ -24,16 +23,10 @@ def create_report_artifacts(reportData):
 
     # Crete a report for each project within the hierarchy
     # and return a list of the files there were created.
-    spdxTagValueFiles = report_artifacts_tag_value.generate_tag_value_spdx_report(reportData)
+    jsonFile = report_artifacts_json.generate_json_report(reportData)
 
-    if len(reportData["projectList"]) == 1:
-        reports["viewable"] = spdxTagValueFiles[0]
-        reports["allFormats"] = spdxTagValueFiles
-    else:
-        sumamryFile = report_artifacts_summary.generate_spdx_summary_report(reportData, spdxTagValueFiles)
-        reports["viewable"] = sumamryFile
-        reports["allFormats"] = spdxTagValueFiles
-        reports["allFormats"].append(sumamryFile)
+    reports["viewable"] = jsonFile
+    reports["allFormats"] = [jsonFile]
 
     logger.info("Exiting create_report_artifacts")
     
