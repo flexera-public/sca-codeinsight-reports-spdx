@@ -14,13 +14,23 @@
         },
         "option2" :
         {
+            "name" : "includeFileDetails",
+            "label" : "Include file level information? (True/False)",
+            "description" : "Should the report include any data associated to file level details? <b>(True/False)</b>",
+            "type" : "string",
+            "defaultValue" : "True",
+            "required" : "true",
+            "order" : "2"
+        },
+        "option3" :
+        {
             "name" : "includeUnassociatedFiles",
             "label" : "Include files that are not associated to inventory items? (True/False)",
             "description" : "Should the report include data for files not associated to inventory items? <b>(True/False)</b>",
             "type" : "string",
             "defaultValue" : "False",
             "required" : "true",
-            "order" : "2"
+            "order" : "3"
         }
 
     }
