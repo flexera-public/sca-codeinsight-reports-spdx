@@ -205,7 +205,7 @@ def verifyOptions(reportOptions):
 
 	if includeUnassociatedFiles.lower() in trueOptions:
 		reportOptions["includeUnassociatedFiles"] = True
-	elif includeUnassociatedFiles.lower() in falseOptions:
+	elif includeUnassociatedFiles.lower() in falseOptions or includeFileDetails.lower() in falseOptions:
 		reportOptions["includeUnassociatedFiles"] = False
 	else:
 		reportOptions["errorMsg"].append("Invalid option for including unassocated files: <b>%s</b>.  Valid options are <b>True/False</b>" %includeUnassociatedFiles)
