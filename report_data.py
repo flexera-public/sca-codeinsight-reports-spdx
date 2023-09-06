@@ -143,10 +143,20 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
                     licenseInfoFromFiles = []
                     fileHashes = []
                     for filePath in filePaths:
-                        uniqueFileID = filePathtoID["inInventory"][filePath]["uniqueFileID"]
-                        fileDetail = projectFileDetails[uniqueFileID]
-                        fileHashes.append(filePathtoID["inInventory"][filePath]["fileSHA1"])
+                        if filePath in filePathtoID["inInventory"]:
+                            uniqueFileID = filePathtoID["inInventory"][filePath]["uniqueFileID"]
+                            fileHashes.append(filePathtoID["inInventory"][filePath]["fileSHA1"])
+                        elif filePath in filePathtoID["notInInventory"]:
+                            uniqueFileID = filePathtoID["notInInventory"][filePath]["uniqueFileID"]
+                            logger.critical("File path asscoited to inventory but not according to file details response!!")
+                            logger.critical("    File ID: %s   File Path: %s" %(uniqueFileID, filePath))
 
+                            fileHashes.append(filePathtoID["notInInventory"][filePath]["fileSHA1"])
+                        else:
+                            logger.error("File path does not seem to be in or out of inventory!!")
+                            return {"errorMsg" : "File path does not seem to be in or out of inventory!!"}
+                        
+                        fileDetail = projectFileDetails[uniqueFileID]
                         fileSPDXID = fileDetail["SPDXID"]
 
                         # Define the relationship of the file to the package
