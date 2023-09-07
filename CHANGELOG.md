@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [unreleased]
+
+## [3.0.1] - 2023-09-07
 ### Fixed
 - Worked around potential issue with mismatch between file data response and files in inventory
 - Added logic to set non inventory file option to False if files are being ignored
