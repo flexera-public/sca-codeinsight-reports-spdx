@@ -48,9 +48,9 @@ def get_scanned_file_details(baseURL, authToken, projectID, includeUnassociatedF
         inInventory = scannedFile["inInventory"]
         remoteFile = scannedFile["remote"]
 
-        # Don't collect any data for the files we don't care about
-        if inInventory == "false" and not includeUnassociatedFiles:
-            continue 
+        # # Don't collect any data for the files we don't care about
+        # if inInventory == "false" and not includeUnassociatedFiles:
+        #     continue 
 
         # Create a unique identifier based on fileID and scan location
         if remoteFile == "false":

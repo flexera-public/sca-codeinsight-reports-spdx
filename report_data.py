@@ -153,8 +153,9 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
 
                             fileHashes.append(filePathtoID["notInInventory"][filePath]["fileSHA1"])
                         else:
-                            logger.error("File path does not seem to be in or out of inventory!!")
-                            return {"errorMsg" : "File path does not seem to be in or out of inventory!!"}
+                            logger.critical("File path does not seem to be in or out of inventory!!")
+                            logger.critical("    File Path: %s" %(filePath))
+                            continue
                         
                         fileDetail = projectFileDetails[uniqueFileID]
                         fileSPDXID = fileDetail["SPDXID"]
