@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+## [3.0.2] - 2023-10-16
+### Changed
+- Update common submodule to prep for tomcat upgrade in 2023R4
+
 ## [3.0.1] - 2023-09-07
 ### Fixed
 - Worked around potential issue with mismatch between file data response and files in inventory
