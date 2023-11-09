@@ -92,6 +92,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
                 inventoryID = inventoryItem["id"]
                 packageName = componentName + "-" + versionName + "-" + str(inventoryID)  # Inventory ensure the value is unique
                 packageSPDXID = "SPDXRef-Pkg-" + packageName
+                forge = inventoryItem["componentForgeName"]
                 
                 # Manage the homepage value
                 if inventoryItem["componentUrl"] != "" or inventoryItem["componentUrl"] is not None:
@@ -99,7 +100,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
                 else:
                     homepage = "NOASSERTION"
 
-                # Manage the purl value - To be replaced in 2023R4
+                # Manage the purl value - To be replaced in 2024R1
                 try:
                     purlString = purl.get_purl_string(inventoryItem, baseURL, authToken)
                 except:
@@ -120,7 +121,11 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
                 ##########################################
                 # Manage Concluded license
                 concludedLicense, hasExtractedLicensingInfos = manage_package_concluded_license(inventoryItem, hasExtractedLicensingInfos)
-               
+                
+                ##########################################
+                # Create supplier string from forge and component 
+                supplier = create_supplier_string(forge, componentName)
+       
                 packageDetails = {}
                 packageDetails["SPDXID"] = packageSPDXID
                 packageDetails["name"] = packageName
@@ -131,6 +136,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
                 packageDetails["copyrightText"] = "NOASSERTION"     # TODO - use a inventory custom field to store this?
                 packageDetails["licenseDeclared"] = declaredLicenses
                 packageDetails["licenseConcluded"] = concludedLicense
+                packageDetails["supplier"] = supplier
 
                 # Manage file details related to this package
                 filePaths = inventoryItem["filePaths"]
@@ -410,8 +416,27 @@ def manage_unassociated_files(filesNotInInventory, filePathtoID, documentSPDXID)
     packageDetails["copyrightText"] = "NOASSERTION"     # TODO - use a inventory custom field to store this?
     packageDetails["licenseDeclared"] = "NOASSERTION"
     packageDetails["licenseConcluded"] = "NOASSERTION"
+    packageDetails["supplier"] = "Organization: Various, Person: Various"
     packageDetails["licenseInfoFromFiles"] = licenseInfoFromFiles
     packageDetails["packageVerificationCode"] = {}
     packageDetails["packageVerificationCode"]["packageVerificationCodeValue"] = packageVerificationCodeValue
 
     return packageDetails, relationships
+
+#-------------------------------------------------------
+def create_supplier_string(forge, componentName):
+
+
+    if forge in ["github", "gitlab"]:
+        # Is there a way to determine Person vs Organization?
+        supplier = "Organization: %s:%s" %(forge, componentName)
+    elif forge in ["other"]:
+        supplier = "Organization: Undetermined" 
+    else:
+        if forge != "":
+            supplier = "Organization: %s:%s" %(forge, componentName)
+        else:
+            # Have a default value just in case one can't be created
+            supplier = "Organization: Undetermined" 
+   
+    return supplier
