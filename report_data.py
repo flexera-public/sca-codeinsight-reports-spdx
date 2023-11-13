@@ -44,7 +44,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
 
     SPDXVersion = "SPDX-2.2"
     documentSPDXID = "SPDXRef-DOCUMENT"
-    documentNamespace  = "http:/spdx.org/spdxdocs/" + documentName + "-" + str(uuid.uuid1())
+    documentNamespace  = "http://spdx.org/spdxdocs/" + documentName + "-" + str(uuid.uuid1())
     creator = "Tool: Revenera SCA - Code Insight %s" %releaseVersion
     dataLicense = "CC0-1.0"   
 
