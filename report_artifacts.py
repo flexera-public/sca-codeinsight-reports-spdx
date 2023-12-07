@@ -11,6 +11,7 @@ File : report_artifacts.py
 import logging
 
 import report_artifacts_json
+import report_artifacts_tagvalue
 
 logger = logging.getLogger(__name__)
 
@@ -23,10 +24,11 @@ def create_report_artifacts(reportData):
 
     # Crete a report for each project within the hierarchy
     # and return a list of the files there were created.
+    tagvalueFile = report_artifacts_tagvalue.generate_tagvalue_report(reportData)
     jsonFile = report_artifacts_json.generate_json_report(reportData)
 
     reports["viewable"] = jsonFile
-    reports["allFormats"] = [jsonFile]
+    reports["allFormats"] = [jsonFile, tagvalueFile]
 
     logger.info("Exiting create_report_artifacts")
     

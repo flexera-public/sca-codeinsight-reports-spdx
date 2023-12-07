@@ -23,6 +23,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
 
     reportDetails={}
     packages = []
+    packageFiles = {} # Needed for tag/value format since files needed to be inline with packages
     hasExtractedLicensingInfos = {}
     relationships = []
     files = []
@@ -66,12 +67,8 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
             if includeUnassociatedFiles:
                 filePathsNotInInventoryToID.update(filePathtoID["notInInventory"])
 
-            # Combine the files associated to this project to the larger list
-            files = files + list(projectFileDetails.values())     
-
             print("            File level details for project has been collected")
             logger.info("            File level details for project has been collected")
-
 
         print("            Collect inventory details.")
         logger.info("            Collect inventory details")
@@ -100,12 +97,17 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
                 else:
                     homepage = "NOASSERTION"
 
-                # Manage the purl value - To be replaced in 2024R1
-                try:
-                    purlString = purl.get_purl_string(inventoryItem, baseURL, authToken)
-                except:
-                    logger.warning("Unable to create purl string for inventory item %s." %packageName)
-                    purlString = ""
+                # Manage the purl value - 2024R1 added purl in response
+                if reportData["releaseVersion"] > "2024R1":
+                    purlString = inventoryItem["purl"]
+                    if purlString == "N/A":
+                        purlString = ""
+                else:
+                    try:
+                        purlString = purl.get_purl_string(inventoryItem, baseURL, authToken)
+                    except:
+                        logger.warning("Unable to create purl string for inventory item %s." %packageName)
+                        purlString = ""
 
                 if "@" in purlString:
                     perlRef = {}
@@ -146,6 +148,8 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
                     packageDetails["filesAnalyzed"] = False
                 else:
 
+                    packageFiles[packageSPDXID] = [] # Create array to hold all required file data for tag/value report
+
                     licenseInfoFromFiles = []
                     fileHashes = []
                     for filePath in filePaths:
@@ -154,7 +158,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
                             fileHashes.append(filePathtoID["inInventory"][filePath]["fileSHA1"])
                         elif filePath in filePathtoID["notInInventory"]:
                             uniqueFileID = filePathtoID["notInInventory"][filePath]["uniqueFileID"]
-                            logger.critical("File path asscoited to inventory but not according to file details response!!")
+                            logger.critical("File path associated to inventory but not according to file details response!!")
                             logger.critical("    File ID: %s   File Path: %s" %(uniqueFileID, filePath))
 
                             fileHashes.append(filePathtoID["notInInventory"][filePath]["fileSHA1"])
@@ -166,6 +170,11 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
                         fileDetail = projectFileDetails[uniqueFileID]
                         fileSPDXID = fileDetail["SPDXID"]
 
+                        packageFiles[packageSPDXID].append(fileDetail) # add for tag/value output
+                        # See if the file has alrady been added for another package or not for json output
+                        if fileDetail not in files:   
+                            files.append(fileDetail)  # add for json output
+
                         # Define the relationship of the file to the package
                         fileRelationship = {}
                         fileRelationship["spdxElementId"] = packageSPDXID
@@ -175,7 +184,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
 
                         # Surfaces the file level evidence to the assocaited package
                         licenseInfoFromFiles = licenseInfoFromFiles + fileDetail["licenseInfoInFiles"]
-
+        
                     # Create a hash of the file hashes for PackageVerificationCode 
                     try:
                         stringHash = ''.join(sorted(fileHashes))
@@ -196,14 +205,17 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
                     packageDetails["packageVerificationCode"] = {}
                     packageDetails["packageVerificationCode"]["packageVerificationCodeValue"] = packageVerificationCodeValue
              
-                packages.append(packageDetails)
+                if packageDetails not in packages:
+                    packages.append(packageDetails)
 
                 # Manange the relationship for this pacakge to the docuemnt
                 packageRelationship = {}
                 packageRelationship["spdxElementId"] = documentSPDXID
                 packageRelationship["relationshipType"] = "DESCRIBES"
                 packageRelationship["relatedSpdxElement"] = packageSPDXID
-                relationships.append(packageRelationship)
+                
+                if packageRelationship not in relationships:
+                    relationships.append(packageRelationship)
         
         # See if there are any files that are not contained in inventory
         if includeFileDetails:
@@ -218,6 +230,8 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
         unassociatedFilesPackage, unassociatedFilesRelationships = manage_unassociated_files(filesNotInInventory, filePathsNotInInventoryToID, documentSPDXID)
         packages.append(unassociatedFilesPackage)
         relationships= relationships + unassociatedFilesRelationships
+        files = files + filesNotInInventory
+        packageFiles[unassociatedFilesPackage["SPDXID"]] = filesNotInInventory # add for tag/value output
 
 
     # Clean up the hasExtractedLicensingInfos comment field to remove the array and make a string
@@ -247,6 +261,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
     reportData["topLevelProjectName"] = topLevelProjectName
     reportData["reportDetails"] = reportDetails
     reportData["projectList"] = projectList
+    reportData["packageFiles"] = packageFiles
 
     return reportData
 
