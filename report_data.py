@@ -81,40 +81,58 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
             inventoryType = inventoryItem["type"]
 
             # Seperate out Inventory vs WIP or License Only items
-            if inventoryType == "Component":
+            if inventoryType != "Work in Progress":
 
                 externalRefs = []  # For now just holds the purl but in the future could hold more items
-                componentName = re.sub('[^a-zA-Z0-9 \n\.]', '-', inventoryItem["componentName"]).lstrip('-') # Replace spec chars with dash
-                versionName = re.sub('[^a-zA-Z0-9 \n\.]', '-', inventoryItem["componentVersionName"]).lstrip('-')  # Replace spec chars with dash
+
                 inventoryID = inventoryItem["id"]
-                packageName = componentName + "-" + versionName + "-" + str(inventoryID)  # Inventory ensure the value is unique
+
+                if inventoryType == "License Only":
+                    name =  inventoryItem["name"].split("(")[0] # Get rid of ( SPDX ID ) from name
+                    name = re.sub('[^a-zA-Z0-9 \n\.]', '-', name.strip()).lstrip('-') # Replace spec chars with dash
+                    name = name.replace(" ", "-")
+                    packageName = name + "-" + str(inventoryID)  # Inventory ensure the value is unique
+
+                    supplier = "Organization: Various, People: Various" 
+
+                elif inventoryType == "Component":
+                    componentName = re.sub('[^a-zA-Z0-9 \n\.]', '-', inventoryItem["componentName"]).lstrip('-') # Replace spec chars with dash
+                    versionName = re.sub('[^a-zA-Z0-9 \n\.]', '-', inventoryItem["componentVersionName"]).lstrip('-')  # Replace spec chars with dash
+                    packageName = componentName + "-" + versionName + "-" + str(inventoryID)  # Inventory ensure the value is unique
+
+                    forge = inventoryItem["componentForgeName"]
+
+                    ##########################################
+                    # Create supplier string from forge and component 
+                    supplier = create_supplier_string(forge, componentName)
+
+                    # Manage the purl value - 2024R1 added purl in response
+                    if reportData["releaseVersion"] > "2024R1":
+                        purlString = inventoryItem["purl"]
+                        if purlString == "N/A":
+                            purlString = ""
+                    else:
+                        try:
+                            purlString = purl.get_purl_string(inventoryItem, baseURL, authToken)
+                        except:
+                            logger.warning("Unable to create purl string for inventory item %s." %packageName)
+                            purlString = ""
+
+                    if "@" in purlString:
+                        perlRef = {}
+                        perlRef["referenceCategory"] = "PACKAGE-MANAGER"
+                        perlRef["referenceLocator"] = purlString
+                        perlRef["referenceType"] = "purl"
+                        externalRefs.append(perlRef)    
+
+                # Common for Components and License Only items
                 packageSPDXID = "SPDXRef-Pkg-" + packageName
-                forge = inventoryItem["componentForgeName"]
                 
                 # Manage the homepage value
                 if inventoryItem["componentUrl"] != "" or inventoryItem["componentUrl"] is not None:
                     homepage = inventoryItem["componentUrl"]
                 else:
                     homepage = "NOASSERTION"
-
-                # Manage the purl value - 2024R1 added purl in response
-                if reportData["releaseVersion"] > "2024R1":
-                    purlString = inventoryItem["purl"]
-                    if purlString == "N/A":
-                        purlString = ""
-                else:
-                    try:
-                        purlString = purl.get_purl_string(inventoryItem, baseURL, authToken)
-                    except:
-                        logger.warning("Unable to create purl string for inventory item %s." %packageName)
-                        purlString = ""
-
-                if "@" in purlString:
-                    perlRef = {}
-                    perlRef["referenceCategory"] = "PACKAGE-MANAGER"
-                    perlRef["referenceLocator"] = purlString
-                    perlRef["referenceType"] = "purl"
-                    externalRefs.append(perlRef)
      
                 ##########################################
                 # Manage Declared Licenses - These are the "possible" license based on data collection
@@ -124,9 +142,6 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
                 # Manage Concluded license
                 concludedLicense, hasExtractedLicensingInfos = manage_package_concluded_license(inventoryItem, hasExtractedLicensingInfos)
                 
-                ##########################################
-                # Create supplier string from forge and component 
-                supplier = create_supplier_string(forge, componentName)
        
                 packageDetails = {}
                 packageDetails["SPDXID"] = packageSPDXID
@@ -277,7 +292,7 @@ def manage_package_declared_licenses(inventoryItem, hasExtractedLicensingInfos):
         possibleLicenses = inventoryItem["possibleLicenses"]
     except:
         possibleLicenses = []
-        declaredLicenses.append("NO ASSERTION")
+        declaredLicenses.append("NOASSERTION")
 
     for license in possibleLicenses:
         licenseName = license["licenseSPDXIdentifier"]
