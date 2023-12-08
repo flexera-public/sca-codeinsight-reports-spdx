@@ -99,8 +99,9 @@ def generate_tagvalue_report(reportData):
                 report_ptr.write("PackageLicenseInfoFromFiles: %s\n" %license)
 
         if packageDetails["name"] != "OtherFiles":
-            for externalRef in packageDetails["externalRefs"]:
-                report_ptr.write("ExternalRef: %s %s %s\n" %(externalRef["referenceCategory"], externalRef["referenceType"], externalRef["referenceLocator"]))
+            if "externalRefs" in packageDetails:
+                for externalRef in packageDetails["externalRefs"]:
+                    report_ptr.write("ExternalRef: %s %s %s\n" %(externalRef["referenceCategory"], externalRef["referenceType"], externalRef["referenceLocator"]))
 
         report_ptr.write("\n")
 

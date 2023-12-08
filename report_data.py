@@ -147,7 +147,8 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
                 packageDetails["SPDXID"] = packageSPDXID
                 packageDetails["name"] = packageName
                 packageDetails["versionInfo"] = versionName
-                packageDetails["externalRefs"] = externalRefs
+                if externalRefs:
+                    packageDetails["externalRefs"] = externalRefs
                 packageDetails["homepage"] = homepage
                 packageDetails["downloadLocation"] = "NOASSERTION"  # TODO - use a inventory custom field to store this?
                 packageDetails["copyrightText"] = "NOASSERTION"     # TODO - use a inventory custom field to store this?
