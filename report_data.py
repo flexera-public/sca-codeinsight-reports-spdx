@@ -222,7 +222,10 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
             # Manage the items from this project that were not associated to inventory
             for filePath in filePathtoID["notInInventory"]:
                 uniqueFileID = filePathtoID["notInInventory"][filePath]["uniqueFileID"]
-                filesNotInInventory.append(projectFileDetails[uniqueFileID])
+
+                # Make sure it's only being added once in case a child project has many parents
+                if projectFileDetails[uniqueFileID] not in filesNotInInventory:
+                    filesNotInInventory.append(projectFileDetails[uniqueFileID])
 
 
     ##############################
