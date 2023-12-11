@@ -6,6 +6,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+
+## [3.1.0] - 2023-11-09
+### Added
+- Validated all formats with SPDX Command Line Tools using the Spdx-Java-Library v1.1.7
+- Reintroduced tag/value format
+- Support for License Only and Work in Progress Items
+- Report option for including/excluding non runtime dependencies
+### Fixed
+- Fix documentNamespace
+- Files section always included all files independent of includeUnassociatedFiles option
+
 ## [3.0.3] - 2023-11-09
 ### Changed
 - Add supplier field

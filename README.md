@@ -2,6 +2,8 @@
 
 The `sca-codeinsight-reports-spdx` repository is a example report for Revenera's Code Insight product. This report allows a user to generate an SPDX report representing the software bill of material (SBOM) information, including components, licenses, copyrights, and security references. 
 
+Both JSON and tag/value SPDX documents will be created
+
  **Supported SPDX Version Output - 2.2**
 
 ## Prerequisites
@@ -15,6 +17,7 @@ The `sca-codeinsight-reports-spdx` repository is a example report for Revenera's
 |1.2.x |2021R4  |
 |1.3.x |2022R1  |
 |3.x.x |2023R2  |
+|3.1.x |2023R3  |
 
 **Repository Cloning**
 
@@ -82,6 +85,7 @@ This report is executed directly from within Revenera's Code Insight product. Fr
 
 **Report Options**
 - Including child projects (True/False) - Determine if child project data will be included or not.
+- Include Non Runtime dependency items (True/False) - Should the report include data for dependencies that are not of a Runtime scope?
 - Including file level details (True/False) - Determine if any file data will be included or not.
 - Including files not associated with inventory items (True/False) - Should files not associated with inventory items be included in the report
 
@@ -99,11 +103,9 @@ The Code Insight Report Framework will provide the following to the report when 
 For this example report these three items are passed on to a batch or sh file which will in turn execute a python script. This script will then:
 
 - Collect data for the report via REST API using the Project ID and Authorization Token
-- Take this collected data and generate an tag/value spdx document(s)
-- The spdx file will be marked as the *"viewable"* file
-    - If project hierachy is enabled a summary document will be created
-- A zip file will be created containing the spdx which will be the *"downloadable"* file.
-    - If project hierachy is enabled the summary document along with an SPDX document for each project will be added to this downloadable file
+- Take this collected data and generate an SPDX document in both JSON and tag/value format.
+- The JSON SPDX file will be marked as the *"viewable"* file
+- A zip file will be created containing the both the JSON and tag/value artifacts which will be the *"downloadable"* file.
 - Create a zip file with the viewable file and the downloadable file
 - Upload this combined zip file to Code Insight via REST API
 - Delete the report artifacts that were created as the script ran
