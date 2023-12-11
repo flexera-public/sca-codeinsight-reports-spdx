@@ -1,5 +1,5 @@
 {
-    "reportName" : "SBOM Report - SPDX",
+    "reportName" : "SBOM Report - SPDX (JSON/Tag-Value)",
     "enableProjectPickerValue" : "false",
     "reportOptions" : {
         "option1" : 
