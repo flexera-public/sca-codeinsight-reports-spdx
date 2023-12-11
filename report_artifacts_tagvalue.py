@@ -75,7 +75,8 @@ def generate_tagvalue_report(reportData):
         report_ptr.write("\n")
         report_ptr.write("PackageName: %s\n" %packageDetails["name"])
         report_ptr.write("SPDXID: %s\n" %(packageDetails["SPDXID"]))
-        report_ptr.write("PackageVersion: %s\n" %packageDetails["versionInfo"])
+        if "versionInfo" in packageDetails:
+            report_ptr.write("PackageVersion: %s\n" %packageDetails["versionInfo"])
         report_ptr.write("PackageSupplier: %s\n" %packageDetails["supplier"])
         report_ptr.write("PackageHomePage: %s\n" %packageDetails["homepage"])
         report_ptr.write("PackageDownloadLocation: %s\n" %packageDetails["downloadLocation"])   

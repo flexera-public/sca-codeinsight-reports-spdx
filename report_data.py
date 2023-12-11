@@ -80,159 +80,158 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
         for inventoryItem in inventoryItems:
             inventoryType = inventoryItem["type"]
 
-            # Seperate out Inventory vs WIP or License Only items
-            if inventoryType != "Work in Progress":
+            externalRefs = []  # For now just holds the purl but in the future could hold more items
 
-                externalRefs = []  # For now just holds the purl but in the future could hold more items
+            inventoryID = inventoryItem["id"]
 
-                inventoryID = inventoryItem["id"]
+            if inventoryType != "Component":
+                name =  inventoryItem["name"].split("(")[0] # Get rid of ( SPDX ID ) from name
+                name = re.sub('[^a-zA-Z0-9 \n\.]', '-', name.strip()).lstrip('-') # Replace spec chars with dash
+                name = name.replace(" ", "-")
+                packageName = name + "-" + str(inventoryID)  # Inventory ensure the value is unique
 
-                if inventoryType == "License Only":
-                    name =  inventoryItem["name"].split("(")[0] # Get rid of ( SPDX ID ) from name
-                    name = re.sub('[^a-zA-Z0-9 \n\.]', '-', name.strip()).lstrip('-') # Replace spec chars with dash
-                    name = name.replace(" ", "-")
-                    packageName = name + "-" + str(inventoryID)  # Inventory ensure the value is unique
+                supplier = "Organization: Various, People: Various" 
 
-                    supplier = "Organization: Various, People: Various" 
+            else:
+                componentName = re.sub('[^a-zA-Z0-9 \n\.]', '-', inventoryItem["componentName"]).lstrip('-') # Replace spec chars with dash
+                versionName = re.sub('[^a-zA-Z0-9 \n\.]', '-', inventoryItem["componentVersionName"]).lstrip('-')  # Replace spec chars with dash
+                packageName = componentName + "-" + versionName + "-" + str(inventoryID)  # Inventory ensure the value is unique
 
-                elif inventoryType == "Component":
-                    componentName = re.sub('[^a-zA-Z0-9 \n\.]', '-', inventoryItem["componentName"]).lstrip('-') # Replace spec chars with dash
-                    versionName = re.sub('[^a-zA-Z0-9 \n\.]', '-', inventoryItem["componentVersionName"]).lstrip('-')  # Replace spec chars with dash
-                    packageName = componentName + "-" + versionName + "-" + str(inventoryID)  # Inventory ensure the value is unique
-
-                    forge = inventoryItem["componentForgeName"]
-
-                    ##########################################
-                    # Create supplier string from forge and component 
-                    supplier = create_supplier_string(forge, componentName)
-
-                    # Manage the purl value - 2024R1 added purl in response
-                    if reportData["releaseVersion"] > "2024R1":
-                        purlString = inventoryItem["purl"]
-                        if purlString == "N/A":
-                            purlString = ""
-                    else:
-                        try:
-                            purlString = purl.get_purl_string(inventoryItem, baseURL, authToken)
-                        except:
-                            logger.warning("Unable to create purl string for inventory item %s." %packageName)
-                            purlString = ""
-
-                    if "@" in purlString:
-                        perlRef = {}
-                        perlRef["referenceCategory"] = "PACKAGE-MANAGER"
-                        perlRef["referenceLocator"] = purlString
-                        perlRef["referenceType"] = "purl"
-                        externalRefs.append(perlRef)    
-
-                # Common for Components and License Only items
-                packageSPDXID = "SPDXRef-Pkg-" + packageName
-                
-                # Manage the homepage value
-                if inventoryItem["componentUrl"] != "" or inventoryItem["componentUrl"] is not None:
-                    homepage = inventoryItem["componentUrl"]
-                else:
-                    homepage = "NOASSERTION"
-     
-                ##########################################
-                # Manage Declared Licenses - These are the "possible" license based on data collection
-                declaredLicenses, hasExtractedLicensingInfos = manage_package_declared_licenses(inventoryItem, hasExtractedLicensingInfos)
+                forge = inventoryItem["componentForgeName"]
 
                 ##########################################
-                # Manage Concluded license
-                concludedLicense, hasExtractedLicensingInfos = manage_package_concluded_license(inventoryItem, hasExtractedLicensingInfos)
-                
-       
-                packageDetails = {}
-                packageDetails["SPDXID"] = packageSPDXID
-                packageDetails["name"] = packageName
-                packageDetails["versionInfo"] = versionName
-                if externalRefs:
-                    packageDetails["externalRefs"] = externalRefs
-                packageDetails["homepage"] = homepage
-                packageDetails["downloadLocation"] = "NOASSERTION"  # TODO - use a inventory custom field to store this?
-                packageDetails["copyrightText"] = "NOASSERTION"     # TODO - use a inventory custom field to store this?
-                packageDetails["licenseDeclared"] = declaredLicenses
-                packageDetails["licenseConcluded"] = concludedLicense
-                packageDetails["supplier"] = supplier
+                # Create supplier string from forge and component 
+                supplier = create_supplier_string(forge, componentName)
 
-                # Manage file details related to this package
-                filePaths = inventoryItem["filePaths"]
-                
-                # Are there any files assocaited to this inventory item?
-                if len(filePaths) == 0 or not includeFileDetails: 
-                    packageDetails["filesAnalyzed"] = False
+                # Manage the purl value - 2024R1 added purl in response
+                if reportData["releaseVersion"] > "2024R1":
+                    purlString = inventoryItem["purl"]
+                    if purlString == "N/A":
+                        purlString = ""
                 else:
-
-                    packageFiles[packageSPDXID] = [] # Create array to hold all required file data for tag/value report
-
-                    licenseInfoFromFiles = []
-                    fileHashes = []
-                    for filePath in filePaths:
-                        if filePath in filePathtoID["inInventory"]:
-                            uniqueFileID = filePathtoID["inInventory"][filePath]["uniqueFileID"]
-                            fileHashes.append(filePathtoID["inInventory"][filePath]["fileSHA1"])
-                        elif filePath in filePathtoID["notInInventory"]:
-                            uniqueFileID = filePathtoID["notInInventory"][filePath]["uniqueFileID"]
-                            logger.critical("File path associated to inventory but not according to file details response!!")
-                            logger.critical("    File ID: %s   File Path: %s" %(uniqueFileID, filePath))
-
-                            fileHashes.append(filePathtoID["notInInventory"][filePath]["fileSHA1"])
-                        else:
-                            logger.critical("File path does not seem to be in or out of inventory!!")
-                            logger.critical("    File Path: %s" %(filePath))
-                            continue
-                        
-                        fileDetail = projectFileDetails[uniqueFileID]
-                        fileSPDXID = fileDetail["SPDXID"]
-
-                        packageFiles[packageSPDXID].append(fileDetail) # add for tag/value output
-                        # See if the file has alrady been added for another package or not for json output
-                        if fileDetail not in files:   
-                            files.append(fileDetail)  # add for json output
-
-                        # Define the relationship of the file to the package
-                        fileRelationship = {}
-                        fileRelationship["spdxElementId"] = packageSPDXID
-                        fileRelationship["relationshipType"] = "CONTAINS"
-                        fileRelationship["relatedSpdxElement"] = fileSPDXID
-                        relationships.append(fileRelationship)
-
-                        # Surfaces the file level evidence to the assocaited package
-                        licenseInfoFromFiles = licenseInfoFromFiles + fileDetail["licenseInfoInFiles"]
-        
-                    # Create a hash of the file hashes for PackageVerificationCode 
                     try:
-                        stringHash = ''.join(sorted(fileHashes))
+                        purlString = purl.get_purl_string(inventoryItem, baseURL, authToken)
                     except:
-                        logger.error("Failure sorting file hashes for %s" %packageName)
-                        logger.debug(stringHash)
-                        stringHash = ''.join(fileHashes)
-                    
-                    packageVerificationCodeValue = (hashlib.sha1(stringHash.encode('utf-8'))).hexdigest()
+                        logger.warning("Unable to create purl string for inventory item %s." %packageName)
+                        purlString = ""
 
-                    # Was there any file level information
-                    if len(licenseInfoFromFiles) == 0 :
-                        licenseInfoFromFiles = ["NOASSERTION"]
+                if "@" in purlString:
+                    perlRef = {}
+                    perlRef["referenceCategory"] = "PACKAGE-MANAGER"
+                    perlRef["referenceLocator"] = purlString
+                    perlRef["referenceType"] = "purl"
+                    externalRefs.append(perlRef)    
+
+            # Common for Components and License Only items
+            packageSPDXID = "SPDXRef-Pkg-" + packageName
+            
+            # Manage the homepage value
+            if inventoryItem["componentUrl"] != "" or inventoryItem["componentUrl"] is not None:
+                homepage = inventoryItem["componentUrl"]
+            else:
+                homepage = "NOASSERTION"
+    
+            ##########################################
+            # Manage Declared Licenses - These are the "possible" license based on data collection
+            declaredLicenses, hasExtractedLicensingInfos = manage_package_declared_licenses(inventoryItem, hasExtractedLicensingInfos)
+
+            ##########################################
+            # Manage Concluded license
+            concludedLicense, hasExtractedLicensingInfos = manage_package_concluded_license(inventoryItem, hasExtractedLicensingInfos)
+    
+            packageDetails = {}
+            packageDetails["SPDXID"] = packageSPDXID
+            packageDetails["name"] = packageName
+
+            if inventoryType == "Component":
+                packageDetails["versionInfo"] = versionName
+
+            if externalRefs:
+                packageDetails["externalRefs"] = externalRefs
+            packageDetails["homepage"] = homepage
+            packageDetails["downloadLocation"] = "NOASSERTION"  # TODO - use a inventory custom field to store this?
+            packageDetails["copyrightText"] = "NOASSERTION"     # TODO - use a inventory custom field to store this?
+            packageDetails["licenseDeclared"] = declaredLicenses
+            packageDetails["licenseConcluded"] = concludedLicense
+            packageDetails["supplier"] = supplier
+
+            # Manage file details related to this package
+            filePaths = inventoryItem["filePaths"]
+            
+            # Are there any files assocaited to this inventory item?
+            if len(filePaths) == 0 or not includeFileDetails: 
+                packageDetails["filesAnalyzed"] = False
+            else:
+
+                packageFiles[packageSPDXID] = [] # Create array to hold all required file data for tag/value report
+
+                licenseInfoFromFiles = []
+                fileHashes = []
+                for filePath in filePaths:
+                    if filePath in filePathtoID["inInventory"]:
+                        uniqueFileID = filePathtoID["inInventory"][filePath]["uniqueFileID"]
+                        fileHashes.append(filePathtoID["inInventory"][filePath]["fileSHA1"])
+                    elif filePath in filePathtoID["notInInventory"]:
+                        uniqueFileID = filePathtoID["notInInventory"][filePath]["uniqueFileID"]
+                        logger.critical("File path associated to inventory but not according to file details response!!")
+                        logger.critical("    File ID: %s   File Path: %s" %(uniqueFileID, filePath))
+
+                        fileHashes.append(filePathtoID["notInInventory"][filePath]["fileSHA1"])
                     else:
-                        licenseInfoFromFiles = sorted(list(dict.fromkeys(licenseInfoFromFiles)))
+                        logger.critical("File path does not seem to be in or out of inventory!!")
+                        logger.critical("    File Path: %s" %(filePath))
+                        continue
                     
-                    packageDetails["licenseInfoFromFiles"] = licenseInfoFromFiles
-                    packageDetails["packageVerificationCode"] = {}
-                    packageDetails["packageVerificationCode"]["packageVerificationCodeValue"] = packageVerificationCodeValue
-             
-                if packageDetails not in packages:
-                    packages.append(packageDetails)
+                    fileDetail = projectFileDetails[uniqueFileID]
+                    fileSPDXID = fileDetail["SPDXID"]
 
-                # Manange the relationship for this pacakge to the docuemnt
-                packageRelationship = {}
-                packageRelationship["spdxElementId"] = documentSPDXID
-                packageRelationship["relationshipType"] = "DESCRIBES"
-                packageRelationship["relatedSpdxElement"] = packageSPDXID
+                    packageFiles[packageSPDXID].append(fileDetail) # add for tag/value output
+                    # See if the file has alrady been added for another package or not for json output
+                    if fileDetail not in files:   
+                        files.append(fileDetail)  # add for json output
+
+                    # Define the relationship of the file to the package
+                    fileRelationship = {}
+                    fileRelationship["spdxElementId"] = packageSPDXID
+                    fileRelationship["relationshipType"] = "CONTAINS"
+                    fileRelationship["relatedSpdxElement"] = fileSPDXID
+                    relationships.append(fileRelationship)
+
+                    # Surfaces the file level evidence to the assocaited package
+                    licenseInfoFromFiles = licenseInfoFromFiles + fileDetail["licenseInfoInFiles"]
+    
+                # Create a hash of the file hashes for PackageVerificationCode 
+                try:
+                    stringHash = ''.join(sorted(fileHashes))
+                except:
+                    logger.error("Failure sorting file hashes for %s" %packageName)
+                    logger.debug(stringHash)
+                    stringHash = ''.join(fileHashes)
                 
-                if packageRelationship not in relationships:
-                    relationships.append(packageRelationship)
-        
+                packageVerificationCodeValue = (hashlib.sha1(stringHash.encode('utf-8'))).hexdigest()
+
+                # Was there any file level information
+                if len(licenseInfoFromFiles) == 0 :
+                    licenseInfoFromFiles = ["NOASSERTION"]
+                else:
+                    licenseInfoFromFiles = sorted(list(dict.fromkeys(licenseInfoFromFiles)))
+                
+                packageDetails["licenseInfoFromFiles"] = licenseInfoFromFiles
+                packageDetails["packageVerificationCode"] = {}
+                packageDetails["packageVerificationCode"]["packageVerificationCodeValue"] = packageVerificationCodeValue
+            
+            if packageDetails not in packages:
+                packages.append(packageDetails)
+
+            # Manange the relationship for this pacakge to the docuemnt
+            packageRelationship = {}
+            packageRelationship["spdxElementId"] = documentSPDXID
+            packageRelationship["relationshipType"] = "DESCRIBES"
+            packageRelationship["relatedSpdxElement"] = packageSPDXID
+            
+            if packageRelationship not in relationships:
+                relationships.append(packageRelationship)
+    
         # See if there are any files that are not contained in inventory
         if includeFileDetails:
             # Manage the items from this project that were not associated to inventory
@@ -359,6 +358,9 @@ def manage_package_concluded_license(inventoryItem, hasExtractedLicensingInfos):
     elif selectedLicenseName == "I don't know":
         concludedLicense = "NOASSERTION"
 
+    elif selectedLicenseName == "N/A":
+        concludedLicense = "NOASSERTION"
+
     elif selectedLicenseSPDXIdentifier in SPDX_license_mappings.LICENSEMAPPINGS:
         logger.info("        \"%s\" maps to SPDX ID: \"%s\"" %(selectedLicenseSPDXIdentifier, SPDX_license_mappings.LICENSEMAPPINGS[selectedLicenseSPDXIdentifier] ))
         concludedLicense = (SPDX_license_mappings.LICENSEMAPPINGS[selectedLicenseSPDXIdentifier])
@@ -400,6 +402,7 @@ def manage_unassociated_files(filesNotInInventory, filePathtoID, documentSPDXID)
     licenseInfoFromFiles = []
 
     unassociatedFilesPackageName = "OtherFiles"
+    versionName = None
     packageSPDXID = "SPDXRef-Pkg-" + unassociatedFilesPackageName
 
     # Manange the relationship for this pacakge to the docuemnt
@@ -444,7 +447,6 @@ def manage_unassociated_files(filesNotInInventory, filePathtoID, documentSPDXID)
 
     packageDetails["SPDXID"] = packageSPDXID
     packageDetails["name"] = unassociatedFilesPackageName
-    packageDetails["versionInfo"] = "N/A"
     packageDetails["homepage"] = "NOASSERTION"
     packageDetails["downloadLocation"] = "NOASSERTION"  # TODO - use a inventory custom field to store this?
     packageDetails["copyrightText"] = "NOASSERTION"     # TODO - use a inventory custom field to store this?
