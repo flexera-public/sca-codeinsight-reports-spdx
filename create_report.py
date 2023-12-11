@@ -186,6 +186,7 @@ def verifyOptions(reportOptions):
 	falseOptions = ["false", "f", "no", "n"]
 
 	includeChildProjects = reportOptions["includeChildProjects"]
+	includeNonRuntimeInventory = reportOptions["includeNonRuntimeInventory"]
 	includeFileDetails = reportOptions["includeFileDetails"]
 	includeUnassociatedFiles = reportOptions["includeUnassociatedFiles"]
 
@@ -195,6 +196,15 @@ def verifyOptions(reportOptions):
 		reportOptions["includeChildProjects"] = False
 	else:
 		reportOptions["errorMsg"].append("Invalid option for including child projects: <b>%s</b>.  Valid options are <b>True/False</b>" %includeChildProjects)
+
+
+	if includeNonRuntimeInventory.lower() in trueOptions:
+		reportOptions["includeNonRuntimeInventory"] = True
+	elif includeNonRuntimeInventory.lower() in falseOptions:
+		reportOptions["includeNonRuntimeInventory"] = False
+	else:
+		reportOptions["errorMsg"].append("Invalid option for including Nonruntime inventory items: <b>%s</b>.  Valid options are <b>True/False</b>" %includeNonRuntimeInventory)
+
 
 	if includeFileDetails.lower() in trueOptions:
 		reportOptions["includeFileDetails"] = True

@@ -35,6 +35,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
 
     # Parse report options
     includeChildProjects = reportOptions["includeChildProjects"]  # True/False
+    includeNonRuntimeInventory = reportOptions["includeNonRuntimeInventory"]  # True/False
     includeFileDetails = reportOptions["includeFileDetails"]  # True/False
     includeUnassociatedFiles = reportOptions["includeUnassociatedFiles"]  # True/False
 
@@ -79,6 +80,14 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
 
         for inventoryItem in inventoryItems:
             inventoryType = inventoryItem["type"]
+
+            # Check to see if this is a runtime dependency or not (added in 2023R3)
+            if "dependencyScope" in inventoryItem:              
+                if inventoryItem["dependencyScope"] == "Non Runtime":
+                    # This is a non runtime dependency so should it be included or not?
+                    if not includeNonRuntimeInventory:
+                        continue
+
 
             externalRefs = []  # For now just holds the purl but in the future could hold more items
 

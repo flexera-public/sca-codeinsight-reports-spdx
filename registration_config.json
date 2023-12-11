@@ -12,7 +12,17 @@
             "required" : "true",
             "order" : "1"
         },
-        "option2" :
+        "option2" : 
+        {
+            "name" : "includeNonRuntimeInventory",
+            "label" : "Include Non Runtime dependency items? (True/False)",
+            "description" : "Should the report include data for dependencies that are not of a Runtime scope? <b>(True/False)</b>",
+            "type" : "string",
+            "defaultValue" : "False",
+            "required" : "true",
+            "order" : "2"
+        },
+        "option3" :
         {
             "name" : "includeFileDetails",
             "label" : "Include file level information? (True/False)",
@@ -20,9 +30,9 @@
             "type" : "string",
             "defaultValue" : "True",
             "required" : "true",
-            "order" : "2"
+            "order" : "3"
         },
-        "option3" :
+        "option4" :
         {
             "name" : "includeUnassociatedFiles",
             "label" : "Include files that are not associated to inventory items? (True/False)",
@@ -30,7 +40,7 @@
             "type" : "string",
             "defaultValue" : "False",
             "required" : "true",
-            "order" : "3"
+            "order" : "4"
         }
 
     }
