@@ -97,14 +97,15 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
                 name =  inventoryItem["name"].split("(")[0] # Get rid of ( SPDX ID ) from name
                 name = re.sub('[^a-zA-Z0-9 \n\.]', '-', name.strip()).lstrip('-') # Replace spec chars with dash
                 name = name.replace(" ", "-")
-                packageName = name + "-" + str(inventoryID)  # Inventory ensure the value is unique
+                SPDXIDPackageName = name + "-" + str(inventoryID)  # Inventory ensure the value is unique
+                componentName = name
 
                 supplier = "Organization: Various, People: Various" 
 
             else:
                 componentName = re.sub('[^a-zA-Z0-9 \n\.]', '-', inventoryItem["componentName"]).lstrip('-') # Replace spec chars with dash
                 versionName = re.sub('[^a-zA-Z0-9 \n\.]', '-', inventoryItem["componentVersionName"]).lstrip('-')  # Replace spec chars with dash
-                packageName = componentName + "-" + versionName + "-" + str(inventoryID)  # Inventory ensure the value is unique
+                SPDXIDPackageName = componentName + "-" + versionName + "-" + str(inventoryID)  # Inventory ensure the value is unique
 
                 forge = inventoryItem["componentForgeName"]
 
@@ -121,7 +122,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
                     try:
                         purlString = purl.get_purl_string(inventoryItem, baseURL, authToken)
                     except:
-                        logger.warning("Unable to create purl string for inventory item %s." %packageName)
+                        logger.warning("Unable to create purl string for inventory item %s." %SPDXIDPackageName)
                         purlString = ""
 
                 if "@" in purlString:
@@ -132,7 +133,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
                     externalRefs.append(perlRef)    
 
             # Common for Components and License Only items
-            packageSPDXID = "SPDXRef-Pkg-" + packageName
+            packageSPDXID = "SPDXRef-Pkg-" + SPDXIDPackageName
             
             # Manage the homepage value
             if inventoryItem["componentUrl"] != "" or inventoryItem["componentUrl"] is not None:
@@ -150,7 +151,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
     
             packageDetails = {}
             packageDetails["SPDXID"] = packageSPDXID
-            packageDetails["name"] = packageName
+            packageDetails["name"] = componentName
 
             if inventoryType == "Component":
                 packageDetails["versionInfo"] = versionName
@@ -213,7 +214,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
                 try:
                     stringHash = ''.join(sorted(fileHashes))
                 except:
-                    logger.error("Failure sorting file hashes for %s" %packageName)
+                    logger.error("Failure sorting file hashes for %s" %SPDXIDPackageName)
                     logger.debug(stringHash)
                     stringHash = ''.join(fileHashes)
                 
