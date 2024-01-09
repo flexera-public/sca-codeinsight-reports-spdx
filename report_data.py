@@ -50,6 +50,33 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
     creator = "Tool: Revenera SCA - Code Insight %s" %releaseVersion
     dataLicense = "CC0-1.0"   
 
+    # Create a root pacakge to reflect the application itself
+    rootPackageName = re.sub('[^a-zA-Z0-9 \n\.]', '-', topLevelProjectName.replace(" ", "-")) # Replace spec chars with dash
+    rootSPDXID = "SPDXRef-Pkg-" + rootPackageName + "-" + projectID
+
+    packageDetails = {}
+    packageDetails["SPDXID"] = rootSPDXID
+    packageDetails["name"] = topLevelProjectName
+    packageDetails["supplier"] = "NOASSERTION"
+    packageDetails["homepage"] = "NOASSERTION"
+    packageDetails["downloadLocation"] = "NOASSERTION"
+    packageDetails["copyrightText"] = "NOASSERTION" 
+    packageDetails["licenseDeclared"] = "NOASSERTION"
+    packageDetails["licenseConcluded"] = "NOASSERTION"
+    packageDetails["filesAnalyzed"] = False
+    
+
+    packages.append(packageDetails)
+
+    # Manange the relationship for this top level package
+    packageRelationship = {}
+    packageRelationship["spdxElementId"] = documentSPDXID
+    packageRelationship["relationshipType"] = "DESCRIBES"
+    packageRelationship["relatedSpdxElement"] = rootSPDXID
+    
+    if packageRelationship not in relationships:
+        relationships.append(packageRelationship)
+
     #  Gather the details for each project and summerize the data
     for project in projectList:
         projectID = project["projectID"]
@@ -168,6 +195,16 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
             # Manage file details related to this package
             filePaths = inventoryItem["filePaths"]
             
+            # Manange the relationship for this pacakge to the root item
+            packageRelationship = {}
+            packageRelationship["spdxElementId"] = rootSPDXID
+            packageRelationship["relationshipType"] = "CONTAINS"
+            packageRelationship["relatedSpdxElement"] = packageSPDXID
+            
+            if packageRelationship not in relationships:
+                relationships.append(packageRelationship)
+
+
             # Are there any files assocaited to this inventory item?
             if len(filePaths) == 0 or not includeFileDetails: 
                 packageDetails["filesAnalyzed"] = False
@@ -233,14 +270,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
             if packageDetails not in packages:
                 packages.append(packageDetails)
 
-            # Manange the relationship for this pacakge to the docuemnt
-            packageRelationship = {}
-            packageRelationship["spdxElementId"] = documentSPDXID
-            packageRelationship["relationshipType"] = "DESCRIBES"
-            packageRelationship["relatedSpdxElement"] = packageSPDXID
-            
-            if packageRelationship not in relationships:
-                relationships.append(packageRelationship)
+
     
         # See if there are any files that are not contained in inventory
         if includeFileDetails:
@@ -255,7 +285,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
 
     ##############################
     if includeUnassociatedFiles:
-        unassociatedFilesPackage, unassociatedFilesRelationships = manage_unassociated_files(filesNotInInventory, filePathsNotInInventoryToID, documentSPDXID)
+        unassociatedFilesPackage, unassociatedFilesRelationships = manage_unassociated_files(filesNotInInventory, filePathsNotInInventoryToID, rootSPDXID)
         packages.append(unassociatedFilesPackage)
         relationships= relationships + unassociatedFilesRelationships
         files = files + filesNotInInventory
@@ -404,7 +434,7 @@ def manage_package_concluded_license(inventoryItem, hasExtractedLicensingInfos):
 
 
 #-------------------------------------------------------
-def manage_unassociated_files(filesNotInInventory, filePathtoID, documentSPDXID):
+def manage_unassociated_files(filesNotInInventory, filePathtoID, rootSPDXID):
 
     packageDetails = {}
     relationships = []
@@ -417,8 +447,8 @@ def manage_unassociated_files(filesNotInInventory, filePathtoID, documentSPDXID)
 
     # Manange the relationship for this pacakge to the docuemnt
     packageRelationship = {}
-    packageRelationship["spdxElementId"] = documentSPDXID
-    packageRelationship["relationshipType"] = "DESCRIBES"
+    packageRelationship["spdxElementId"] = rootSPDXID
+    packageRelationship["relationshipType"] = "CONTAINS"
     packageRelationship["relatedSpdxElement"] = packageSPDXID
     relationships.append(packageRelationship)
 
