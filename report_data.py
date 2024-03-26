@@ -106,6 +106,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
         logger.info("            Inventory has been collected.")      
 
         for inventoryItem in inventoryItems:
+            supplier = None # Set a default value to compare with
             inventoryType = inventoryItem["type"]
 
             # Check to see if this is a runtime dependency or not (added in 2023R3)
@@ -120,6 +121,19 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
 
             inventoryID = inventoryItem["id"]
 
+            # See if there is a custom filed at the inventory level for the "Package Supplier"
+            if "customFields" in inventoryItem:
+                customFields = inventoryItem["customFields"]
+
+                # See if the custom project fields were populated for this inventory item
+                for customField in customFields:
+
+                    # Is there the reqired custom field available?
+                    if customField["fieldLabel"] == "Package Supplier":
+                        if customField["value"] is not None and customField["value"] != "":
+                            supplier = customField["value"]
+            
+
             if inventoryType != "Component":
                 name =  inventoryItem["name"].split("(")[0] # Get rid of ( SPDX ID ) from name
                 name = re.sub('[^a-zA-Z0-9 \n\.]', '-', name.strip()).lstrip('-') # Replace spec chars with dash
@@ -127,7 +141,8 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
                 SPDXIDPackageName = name + "-" + str(inventoryID)  # Inventory ensure the value is unique
                 componentName = name
 
-                supplier = "Organization: Various, People: Various" 
+                if supplier is None:
+                    supplier = "Organization: Various, People: Various" 
 
             else:
                 componentName = re.sub('[^a-zA-Z0-9 \n\.]', '-', inventoryItem["componentName"]).lstrip('-') # Replace spec chars with dash
@@ -138,7 +153,8 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
 
                 ##########################################
                 # Create supplier string from forge and component 
-                supplier = create_supplier_string(forge, componentName)
+                if supplier is None:
+                    supplier = create_supplier_string(forge, componentName)
 
                 # Manage the purl value - 2024R1 added purl in response
                 if reportData["releaseVersion"] > "2024R1":
