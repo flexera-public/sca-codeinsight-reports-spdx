@@ -38,6 +38,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
     includeNonRuntimeInventory = reportOptions["includeNonRuntimeInventory"]  # True/False
     includeFileDetails = reportOptions["includeFileDetails"]  # True/False
     includeUnassociatedFiles = reportOptions["includeUnassociatedFiles"]  # True/False
+    createOtherFilesPackage = reportOptions["createOtherFilesPackage"]  # True/False
 
     applicationDetails = common.application_details.determine_application_details(projectID, baseURL, authToken)
     documentName = applicationDetails["applicationDocumentString"].replace(" ", "_")
@@ -301,8 +302,16 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
 
     ##############################
     if includeUnassociatedFiles:
-        unassociatedFilesPackage, unassociatedFilesRelationships = manage_unassociated_files(filesNotInInventory, filePathsNotInInventoryToID, rootSPDXID)
-        packages.append(unassociatedFilesPackage)
+        unassociatedFilesPackage, unassociatedFilesRelationships = manage_unassociated_files(filesNotInInventory, filePathsNotInInventoryToID, rootSPDXID, createOtherFilesPackage)
+
+        if unassociatedFilesPackage["SPDXID"] == rootSPDXID:
+            # Since this is the top level pacakge we need to update a few things for the package
+            packages[0].pop("filesAnalyzed")
+            packages[0]["licenseInfoFromFiles"] = unassociatedFilesPackage["licenseInfoFromFiles"]
+            packages[0]["packageVerificationCode"] = unassociatedFilesPackage["packageVerificationCode"]
+        else:
+            packages.append(unassociatedFilesPackage)
+
         relationships= relationships + unassociatedFilesRelationships
         files = files + filesNotInInventory
         packageFiles[unassociatedFilesPackage["SPDXID"]] = filesNotInInventory # add for tag/value output
@@ -450,23 +459,28 @@ def manage_package_concluded_license(inventoryItem, hasExtractedLicensingInfos):
 
 
 #-------------------------------------------------------
-def manage_unassociated_files(filesNotInInventory, filePathtoID, rootSPDXID):
+def manage_unassociated_files(filesNotInInventory, filePathtoID, rootSPDXID, createOtherFilesPackage):
 
     packageDetails = {}
     relationships = []
     fileHashes = []
     licenseInfoFromFiles = []
 
-    unassociatedFilesPackageName = "OtherFiles"
-    versionName = None
-    packageSPDXID = "SPDXRef-Pkg-" + unassociatedFilesPackageName
+    # Are we creating a new pacakge for the unassocaited files or using the top level pacakage
+    if createOtherFilesPackage:
+        unassociatedFilesPackageName = "OtherFiles"
+        versionName = None
+        packageSPDXID = "SPDXRef-Pkg-" + unassociatedFilesPackageName
 
-    # Manange the relationship for this pacakge to the docuemnt
-    packageRelationship = {}
-    packageRelationship["spdxElementId"] = rootSPDXID
-    packageRelationship["relationshipType"] = "CONTAINS"
-    packageRelationship["relatedSpdxElement"] = packageSPDXID
-    relationships.append(packageRelationship)
+        # Manange the relationship for this pacakge to the docuemnt
+        packageRelationship = {}
+        packageRelationship["spdxElementId"] = rootSPDXID
+        packageRelationship["relationshipType"] = "CONTAINS"
+        packageRelationship["relatedSpdxElement"] = packageSPDXID
+        relationships.append(packageRelationship)
+    else:
+        packageSPDXID = rootSPDXID
+        unassociatedFilesPackageName = None
 
     for fileDetails in filesNotInInventory:
  

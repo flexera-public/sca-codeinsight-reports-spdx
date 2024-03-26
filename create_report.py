@@ -189,6 +189,7 @@ def verifyOptions(reportOptions):
 	includeNonRuntimeInventory = reportOptions["includeNonRuntimeInventory"]
 	includeFileDetails = reportOptions["includeFileDetails"]
 	includeUnassociatedFiles = reportOptions["includeUnassociatedFiles"]
+	createOtherFilesPackage = reportOptions["createOtherFilesPackage"]
 
 	if includeChildProjects.lower() in trueOptions:
 		reportOptions["includeChildProjects"] = True
@@ -219,6 +220,14 @@ def verifyOptions(reportOptions):
 		reportOptions["includeUnassociatedFiles"] = False
 	else:
 		reportOptions["errorMsg"].append("Invalid option for including unassocated files: <b>%s</b>.  Valid options are <b>True/False</b>" %includeUnassociatedFiles)
+
+	if createOtherFilesPackage.lower() in trueOptions:
+		reportOptions["createOtherFilesPackage"] = True
+	elif createOtherFilesPackage.lower() in falseOptions or includeUnassociatedFiles.lower() in falseOptions:
+		reportOptions["createOtherFilesPackage"] = False
+	else:
+		reportOptions["errorMsg"].append("Invalid option for where to map unassocated files: <b>%s</b>.  Valid options are <b>True/False</b>" %createOtherFilesPackage)
+
 
 	if not reportOptions["errorMsg"]:
 		reportOptions.pop('errorMsg', None)

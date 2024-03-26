@@ -41,6 +41,16 @@
             "defaultValue" : "False",
             "required" : "true",
             "order" : "4"
+        },
+        "option5" :
+        {
+            "name" : "createOtherFilesPackage",
+            "label" : "Create a seperate SBOM package to hold all unassocaited files? (True/False)",
+            "description" : "If <b>True<b>, add a relationship for all unassocaited files to a new package, OtherFiles.  If <b>False<b> all files will be have a relationship to the top level pacakge? <b>(True/False)</b>",
+            "type" : "string",
+            "defaultValue" : "False",
+            "required" : "true",
+            "order" : "5"
         }
 
     }
