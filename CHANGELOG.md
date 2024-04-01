@@ -5,8 +5,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [unreleased]
+
+## [3.2.0] - 2024-04-01
 ### Changed
 - Updated package name to reflect just component name
+- Created top level container package to contain inventory and have the document describe
+- Moved package to root relatinship above file to package relationships for tag/value
+- Support inventory level Package Supplier field.
+- Removed "OtherFiles" package and assign any files not mapped to inventory to the top level container package
+
 
 ## [3.1.0] - 2023-11-09
 ### Added

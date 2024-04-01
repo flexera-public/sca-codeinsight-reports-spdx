@@ -4,6 +4,8 @@ The `sca-codeinsight-reports-spdx` repository is a example report for Revenera's
 
 Both JSON and tag/value SPDX documents will be created
 
+A custom inventory field **Package Supplier** can be used to force a pacakge supplier value for a given SBOM entry.
+
  **Supported SPDX Version Output - 2.2**
 
 ## Prerequisites
@@ -88,6 +90,7 @@ This report is executed directly from within Revenera's Code Insight product. Fr
 - Include Non Runtime dependency items (True/False) - Should the report include data for dependencies that are not of a Runtime scope?
 - Including file level details (True/False) - Determine if any file data will be included or not.
 - Including files not associated with inventory items (True/False) - Should files not associated with inventory items be included in the report
+- Create OtherFiles package to contain all files that are not associated to other inventory items.  If the above option is true and this is false all files will be linked to the top level package instead of the OtherFiles Package
 
 The generated reports will utilize the following Project Custom Fields if available
 - Application Name
