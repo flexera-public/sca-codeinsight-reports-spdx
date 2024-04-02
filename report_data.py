@@ -301,7 +301,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
 
 
     ##############################
-    if includeUnassociatedFiles:
+    if includeFileDetails and includeUnassociatedFiles and len(filesNotInInventory) > 0:
         unassociatedFilesPackage, unassociatedFilesRelationships = manage_unassociated_files(filesNotInInventory, filePathsNotInInventoryToID, rootSPDXID, createOtherFilesPackage)
 
         if unassociatedFilesPackage["SPDXID"] == rootSPDXID:
