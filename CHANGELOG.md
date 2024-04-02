@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+## [3.2.1] - 2024-04-02
+### Changed
+- Remove regex sub on name/version and only applied on full package name
+### Fixed 
+- Issue with non associated files when there are no files
+
 ## [3.2.0] - 2024-04-01
 ### Changed
 - Updated package name to reflect just component name
