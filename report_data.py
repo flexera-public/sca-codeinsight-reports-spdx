@@ -59,7 +59,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
     packageDetails = {}
     packageDetails["SPDXID"] = rootSPDXID
     packageDetails["name"] = topLevelProjectName
-    packageDetails["supplier"] = "NOASSERTION"
+    packageDetails["supplier"] = "Organization: %s" %applicationDetails["applicationPublisher"]
     packageDetails["homepage"] = "NOASSERTION"
     packageDetails["downloadLocation"] = "NOASSERTION"
     packageDetails["copyrightText"] = "NOASSERTION" 
