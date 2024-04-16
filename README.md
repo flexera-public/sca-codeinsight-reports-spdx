@@ -1,10 +1,12 @@
-# sca-codeinsight-reports-spdx
+# Revenera Code Insight SPDX Report
 
 The `sca-codeinsight-reports-spdx` repository is a example report for Revenera's Code Insight product. This report allows a user to generate an SPDX report representing the software bill of material (SBOM) information, including components, licenses, copyrights, and security references. 
 
 Both JSON and tag/value SPDX documents will be created
 
 A custom inventory field **Package Supplier** can be used to force a pacakge supplier value for a given SBOM entry.
+
+Project level custom fields, **Application Name**, **Application Version** and **Application Publisher** can also be used for the creation of the overall SPDX document name to replace the project name and the **Application Publisher** entry will be assigned to the top level package's supplier field.
 
  **Supported SPDX Version Output - 2.2**
 
