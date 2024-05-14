@@ -167,7 +167,8 @@ def get_file_evidence(baseURL, authToken, projectID, fileDetails, hasExtractedLi
                         # It's aready there but is the comment the same as any previous entry
                         if licenseReferenceComment not in hasExtractedLicensingInfos[licenseReference]["comment"]:
                             hasExtractedLicensingInfos[licenseReference]["comment"].append(licenseReferenceComment)
-
+        else:
+            licenseEvidenceFound = ["NONE"]
 
         # Add the evidence details to the appropriate area for this file
         fileDetails[uniqueFileID]["copyrightText"]= copyrightEvidenceFound
