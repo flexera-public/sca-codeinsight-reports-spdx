@@ -185,7 +185,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
             packageSPDXID = "SPDXRef-Pkg-" + SPDXIDPackageName
             
             # Manage the homepage value
-            if inventoryItem["componentUrl"] != "" or inventoryItem["componentUrl"] is not None:
+            if inventoryItem["componentUrl"] != "" or inventoryItem["componentUrl"] != "N/A" or inventoryItem["componentUrl"] is not None:
                 homepage = inventoryItem["componentUrl"]
             else:
                 homepage = "NOASSERTION"
