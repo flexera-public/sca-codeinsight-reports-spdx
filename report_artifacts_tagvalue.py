@@ -57,8 +57,9 @@ def generate_tagvalue_report(reportData):
             report_ptr.write("ExtractedText:  %s\n" %(licenseReferencePacakgeIdentifier["extractedText"]))
             
             # Split the comment based on the |
-            for comment in licenseReferencePacakgeIdentifier["comment"].split("|"):
-                report_ptr.write("LicenseComment: %s\n" %comment)
+
+            if len(licenseReferencePacakgeIdentifier["comment"]) > 0:
+                report_ptr.write("LicenseComment: <text>%s</text>\n" %licenseReferencePacakgeIdentifier["comment"])
         
         report_ptr.write("\n")
 
@@ -123,8 +124,9 @@ def generate_tagvalue_report(reportData):
                                     
                 report_ptr.write("LicenseConcluded: %s\n" %fileDetails["licenseConcluded"])
 
-                for copyright in fileDetails["copyrightText"].split("|"):
-                    report_ptr.write("FileCopyrightText: %s\n" %copyright)
+                if len(fileDetails["copyrightText"]) > 0:
+                    report_ptr.write("FileCopyrightText: <text>%s</text>\n" %fileDetails["copyrightText"])
+                    
 
                 for license in fileDetails["licenseInfoInFiles"]:
                     report_ptr.write("LicenseInfoInFile: %s\n" %license)

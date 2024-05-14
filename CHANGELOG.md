@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 - Changed top level supplier to reflect project level custom field Application Publisher
+- Misc tag/value format updates
+- Package URL fix
+- RegEx update to remove _ from pacakge names
+- Tested with pyspdxtools
+
 
 ## [3.2.1] - 2024-04-02
 ### Changed
