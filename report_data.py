@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 def gather_data_for_report(baseURL, projectID, authToken, reportData):
     logger.info("Entering gather_data_for_report")
 
-    SPDXIDPackageNamePattern = r"[^\w\.,-]"  # PackageName is a unique string containing letters, numbers, ., and/or - so get rid of the rest
+    SPDXIDPackageNamePattern = r"[^a-zA-Z0-9\-\.]"  # PackageName is a unique string containing letters, numbers, ., and/or - so get rid of the rest
     reportDetails={}
     packages = []
     packageFiles = {} # Needed for tag/value format since files needed to be inline with packages
@@ -139,7 +139,9 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
             if inventoryType != "Component":
                 name =  inventoryItem["name"].split("(")[0] # Get rid of ( SPDX ID ) from name
                 SPDXIDPackageName = name + "-" + str(inventoryID)  # Inventory ensure the value is unique
+                print(SPDXIDPackageName)
                 SPDXIDPackageName = re.sub(SPDXIDPackageNamePattern, "-", SPDXIDPackageName)          # Remove special characters
+                print(SPDXIDPackageName)
                 componentName = name
 
                 if supplier is None:
@@ -149,7 +151,9 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
                 componentName = inventoryItem["componentName"].strip()
                 versionName = str(inventoryItem["componentVersionName"]).strip()
                 SPDXIDPackageName = componentName + "-" + versionName + "-" + str(inventoryID)  # Inventory ensure the value is unique
+                print(SPDXIDPackageName)
                 SPDXIDPackageName = re.sub(SPDXIDPackageNamePattern, "-", SPDXIDPackageName)          # Remove special characters
+                print(SPDXIDPackageName)
 
                 forge = inventoryItem["componentForgeName"]
 
