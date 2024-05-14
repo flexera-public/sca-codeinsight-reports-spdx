@@ -139,9 +139,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
             if inventoryType != "Component":
                 name =  inventoryItem["name"].split("(")[0] # Get rid of ( SPDX ID ) from name
                 SPDXIDPackageName = name + "-" + str(inventoryID)  # Inventory ensure the value is unique
-                print(SPDXIDPackageName)
                 SPDXIDPackageName = re.sub(SPDXIDPackageNamePattern, "-", SPDXIDPackageName)          # Remove special characters
-                print(SPDXIDPackageName)
                 componentName = name
 
                 if supplier is None:
@@ -151,9 +149,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
                 componentName = inventoryItem["componentName"].strip()
                 versionName = str(inventoryItem["componentVersionName"]).strip()
                 SPDXIDPackageName = componentName + "-" + versionName + "-" + str(inventoryID)  # Inventory ensure the value is unique
-                print(SPDXIDPackageName)
                 SPDXIDPackageName = re.sub(SPDXIDPackageNamePattern, "-", SPDXIDPackageName)          # Remove special characters
-                print(SPDXIDPackageName)
 
                 forge = inventoryItem["componentForgeName"]
 
@@ -185,7 +181,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
             packageSPDXID = "SPDXRef-Pkg-" + SPDXIDPackageName
             
             # Manage the homepage value
-            if inventoryItem["componentUrl"] != "" or inventoryItem["componentUrl"] != "N/A" or inventoryItem["componentUrl"] is not None:
+            if inventoryItem["componentUrl"] not in ["", "N/A", "NA", None]:
                 homepage = inventoryItem["componentUrl"]
             else:
                 homepage = "NOASSERTION"
