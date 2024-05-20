@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Misc tag/value format updates
 - Package URL fix
 - RegEx update to remove _ from pacakge names
+- Fix tag/value dupliate file when single file mapped to multiple packages
+- Change top level relationship for project name package
 - Tested with pyspdxtools
 
 
