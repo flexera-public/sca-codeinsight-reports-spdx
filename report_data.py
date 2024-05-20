@@ -215,9 +215,9 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
             
             # Manange the relationship for this pacakge to the root item
             packageRelationship = {}
-            packageRelationship["spdxElementId"] = rootSPDXID
-            packageRelationship["relationshipType"] = "CONTAINS"
-            packageRelationship["relatedSpdxElement"] = packageSPDXID
+            packageRelationship["spdxElementId"] = packageSPDXID
+            packageRelationship["relationshipType"] = "PACKAGE_OF"
+            packageRelationship["relatedSpdxElement"] = rootSPDXID
             
             if packageRelationship not in relationships:
                 relationships.append(packageRelationship)
