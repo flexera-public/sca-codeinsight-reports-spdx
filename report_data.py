@@ -227,6 +227,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
             if len(filePaths) == 0 or not includeFileDetails: 
                 packageDetails["filesAnalyzed"] = False
             else:
+                packageDetails["filesAnalyzed"] = True
 
                 packageFiles[packageSPDXID] = [] # Create array to hold all required file data for tag/value report
 

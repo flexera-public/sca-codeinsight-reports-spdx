@@ -96,9 +96,10 @@ def generate_tagvalue_report(reportData):
         # Is there file data?
         if "filesAnalyzed" in packageDetails:
             report_ptr.write("FilesAnalyzed: %s\n" %packageDetails["filesAnalyzed"])
-        else:
-            for license in packageDetails["licenseInfoFromFiles"]:
-                report_ptr.write("PackageLicenseInfoFromFiles: %s\n" %license)
+
+            if packageDetails["filesAnalyzed"]:
+                for license in packageDetails["licenseInfoFromFiles"]:
+                    report_ptr.write("PackageLicenseInfoFromFiles: %s\n" %license)
 
         if packageDetails["name"] != "OtherFiles":
             if "externalRefs" in packageDetails:
