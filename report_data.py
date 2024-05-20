@@ -24,7 +24,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
     SPDXIDPackageNamePattern = r"[^a-zA-Z0-9\-\.]"  # PackageName is a unique string containing letters, numbers, ., and/or - so get rid of the rest
     reportDetails={}
     packages = []
-    packageFiles = {} # Needed for tag/value format since files needed to be inline with packages
+    #packageFiles = {} # Needed for tag/value format since files needed to be inline with packages
     hasExtractedLicensingInfos = {}
     relationships = []
     files = []
@@ -229,7 +229,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
             else:
                 packageDetails["filesAnalyzed"] = True
 
-                packageFiles[packageSPDXID] = [] # Create array to hold all required file data for tag/value report
+                #packageFiles[packageSPDXID] = [] # Create array to hold all required file data for tag/value report
 
                 licenseInfoFromFiles = []
                 fileHashes = []
@@ -251,7 +251,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
                     fileDetail = projectFileDetails[uniqueFileID]
                     fileSPDXID = fileDetail["SPDXID"]
 
-                    packageFiles[packageSPDXID].append(fileDetail) # add for tag/value output
+                    #packageFiles[packageSPDXID].append(fileDetail) # add for tag/value output
                     # See if the file has alrady been added for another package or not for json output
                     if fileDetail not in files:   
                         files.append(fileDetail)  # add for json output
@@ -316,7 +316,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
 
         relationships= relationships + unassociatedFilesRelationships
         files = files + filesNotInInventory
-        packageFiles[unassociatedFilesPackage["SPDXID"]] = filesNotInInventory # add for tag/value output
+        #packageFiles[unassociatedFilesPackage["SPDXID"]] = filesNotInInventory # add for tag/value output
 
 
     # Clean up the hasExtractedLicensingInfos comment field to remove the array and make a string
@@ -346,7 +346,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
     reportData["topLevelProjectName"] = topLevelProjectName
     reportData["reportDetails"] = reportDetails
     reportData["projectList"] = projectList
-    reportData["packageFiles"] = packageFiles
+    #reportData["packageFiles"] = packageFiles
 
     return reportData
 

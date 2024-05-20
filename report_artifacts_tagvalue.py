@@ -108,32 +108,56 @@ def generate_tagvalue_report(reportData):
 
         report_ptr.write("\n")
 
-        if packageDetails["SPDXID"] in reportData["packageFiles"]:
+        # if packageDetails["SPDXID"] in reportData["packageFiles"]:
 
-            report_ptr.write("##------------------------------\n")
-            report_ptr.write("##  Package File Details\n")
-            report_ptr.write("##------------------------------\n")
-            report_ptr.write("\n")
+        #     report_ptr.write("##------------------------------\n")
+        #     report_ptr.write("##  Package File Details\n")
+        #     report_ptr.write("##------------------------------\n")
+        #     report_ptr.write("\n")
 
-            for fileDetails in reportData["packageFiles"][packageDetails["SPDXID"]]:
-                report_ptr.write("## ----------------------- File -----------------------\n")
-                report_ptr.write("FileName: ./%s\n" %fileDetails["fileName"])
-                report_ptr.write("SPDXID: %s\n" %fileDetails["SPDXID"])
+        #     for fileDetails in reportData["packageFiles"][packageDetails["SPDXID"]]:
+        #         report_ptr.write("## ----------------------- File -----------------------\n")
+        #         report_ptr.write("FileName: ./%s\n" %fileDetails["fileName"])
+        #         report_ptr.write("SPDXID: %s\n" %fileDetails["SPDXID"])
 
-                for checksum in fileDetails["checksums"]:
-                    report_ptr.write("FileChecksum: %s: %s\n" %(checksum["algorithm"], checksum["checksumValue"] ))
+        #         for checksum in fileDetails["checksums"]:
+        #             report_ptr.write("FileChecksum: %s: %s\n" %(checksum["algorithm"], checksum["checksumValue"] ))
                                     
-                report_ptr.write("LicenseConcluded: %s\n" %fileDetails["licenseConcluded"])
+        #         report_ptr.write("LicenseConcluded: %s\n" %fileDetails["licenseConcluded"])
 
-                if len(fileDetails["copyrightText"]) > 0:
-                    report_ptr.write("FileCopyrightText: <text>%s</text>\n" %fileDetails["copyrightText"])
+        #         if len(fileDetails["copyrightText"]) > 0:
+        #             report_ptr.write("FileCopyrightText: <text>%s</text>\n" %fileDetails["copyrightText"])
                     
 
-                for license in fileDetails["licenseInfoInFiles"]:
-                    report_ptr.write("LicenseInfoInFile: %s\n" %license)
+        #         for license in fileDetails["licenseInfoInFiles"]:
+        #             report_ptr.write("LicenseInfoInFile: %s\n" %license)
 
-                report_ptr.write("\n")
+        #         report_ptr.write("\n")
 
+
+    if "files" in reportDetails:
+        report_ptr.write("##------------------------------\n")
+        report_ptr.write("##  File Details\n")
+        report_ptr.write("##------------------------------\n")
+        report_ptr.write("\n")  
+        
+        for file in reportDetails["files"]: 
+            report_ptr.write("FileName: ./%s\n" %file["fileName"])
+            report_ptr.write("SPDXID: %s\n" %file["SPDXID"])
+
+            for checksum in file["checksums"]:
+                report_ptr.write("FileChecksum: %s: %s\n" %(checksum["algorithm"], checksum["checksumValue"] ))
+                                
+            report_ptr.write("LicenseConcluded: %s\n" %file["licenseConcluded"])
+
+            if len(file["copyrightText"]) > 0:
+                report_ptr.write("FileCopyrightText: <text>%s</text>\n" %file["copyrightText"])
+                
+
+            for license in file["licenseInfoInFiles"]:
+                report_ptr.write("LicenseInfoInFile: %s\n" %license)
+
+            report_ptr.write("\n")
 
     ##########################################################
     #  Enter the relationship details in to the report
