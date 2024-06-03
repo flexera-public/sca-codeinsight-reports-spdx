@@ -170,6 +170,10 @@ def get_file_evidence(baseURL, authToken, projectID, fileDetails, hasExtractedLi
         else:
             licenseEvidenceFound = ["NONE"]
 
+        # Catch any corner cases?
+        if len(licenseEvidenceFound) == 0:
+            licenseEvidenceFound = ["NONE"]
+            
         # Add the evidence details to the appropriate area for this file
         fileDetails[uniqueFileID]["copyrightText"]= copyrightEvidenceFound
         fileDetails[uniqueFileID]["licenseConcluded"]= "NOASSERTION"
