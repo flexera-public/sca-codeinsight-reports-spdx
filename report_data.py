@@ -65,7 +65,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
     packageDetails["copyrightText"] = "NOASSERTION" 
     packageDetails["licenseDeclared"] = "NOASSERTION"
     packageDetails["licenseConcluded"] = "NOASSERTION"
-    packageDetails["filesAnalyzed"] = False
+    packageDetails["filesAnalyzed"] = "false"
     
 
     packages.append(packageDetails)
@@ -225,9 +225,9 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
 
             # Are there any files assocaited to this inventory item?
             if len(filePaths) == 0 or not includeFileDetails: 
-                packageDetails["filesAnalyzed"] = False
+                packageDetails["filesAnalyzed"] = "false"
             else:
-                packageDetails["filesAnalyzed"] = True
+                packageDetails["filesAnalyzed"] = "true"
 
                 #packageFiles[packageSPDXID] = [] # Create array to hold all required file data for tag/value report
 
