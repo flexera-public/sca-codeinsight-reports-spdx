@@ -97,7 +97,7 @@ def generate_tagvalue_report(reportData):
         if "filesAnalyzed" in packageDetails:
             report_ptr.write("FilesAnalyzed: %s\n" %packageDetails["filesAnalyzed"])
 
-            if packageDetails["filesAnalyzed"] == "true":
+            if packageDetails["filesAnalyzed"]:
                 for license in packageDetails["licenseInfoFromFiles"]:
                     report_ptr.write("PackageLicenseInfoFromFiles: %s\n" %license)
 
