@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Change top level relationship for project name package
 - Tested with pyspdxtools
 
+## [3.3.0] - 2025-02-03
+### Changed
+- Included Copyrights pipe seprated for project, Associated files & Unassociated files with inventories
 
 ## [3.2.1] - 2024-04-02
 ### Changed

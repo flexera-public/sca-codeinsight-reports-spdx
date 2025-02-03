@@ -22,6 +22,7 @@ Project level custom fields, **Application Name**, **Application Version** and *
 |1.3.x |2022R1  |
 |3.x.x |2023R2  |
 |3.1.x |2023R3  |
+|3.3.x |2025R1  |
 
 **Repository Cloning**
 
