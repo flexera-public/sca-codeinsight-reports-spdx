@@ -41,6 +41,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
     includeFileDetails = reportOptions["includeFileDetails"]  # True/False
     includeUnassociatedFiles = reportOptions["includeUnassociatedFiles"]  # True/False
     createOtherFilesPackage = reportOptions["createOtherFilesPackage"]  # True/False
+    includeCopyrightsData = reportOptions["includeCopyrightsData"] # True/False
 
     applicationDetails = common.application_details.determine_application_details(projectID, baseURL, authToken)
     documentName = applicationDetails["applicationDocumentString"].replace(" ", "_")
@@ -92,7 +93,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
             # Collect file level details for files associated to this project
             print("            Collect file level details.")
             logger.info("            Collect file level details.")
-            filePathtoID, projectFileDetails, hasExtractedLicensingInfos = report_data_files.manage_file_details(baseURL, authToken, projectID, hasExtractedLicensingInfos, includeUnassociatedFiles)
+            filePathtoID, projectFileDetails, hasExtractedLicensingInfos = report_data_files.manage_file_details(baseURL, authToken, projectID, hasExtractedLicensingInfos, includeUnassociatedFiles, includeCopyrightsData)
 
             # Create a full list of filename to ID mappings for non inventory items
             if includeUnassociatedFiles:
@@ -103,7 +104,10 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
 
         print("            Collect inventory details.")
         logger.info("            Collect inventory details")
-        projectInventory = common.api.project.get_project_inventory.get_project_inventory_details_with_copyrights(baseURL, projectID, authToken)
+        if includeCopyrightsData: 
+            projectInventory = common.api.project.get_project_inventory.get_project_inventory_details_with_copyrights(baseURL, projectID, authToken)
+        else:
+            projectInventory = common.api.project.get_project_inventory.get_project_inventory_details_without_vulnerabilities(baseURL, projectID, authToken)   
         inventoryItems = projectInventory["inventoryItems"]
         print("            Inventory has been collected.")
         logger.info("            Inventory has been collected.")      
@@ -206,7 +210,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
                 packageDetails["externalRefs"] = externalRefs
             packageDetails["homepage"] = homepage
             packageDetails["downloadLocation"] = "NOASSERTION"  # TODO - use a inventory custom field to store this?
-            packageDetails["copyrightText"] = process_copyrights(inventoryItem["copyrights"])
+            packageDetails["copyrightText"] = (process_copyrights(inventoryItem["copyrights"]) if includeCopyrightsData else "NOASSERTION")
             packageDetails["licenseDeclared"] = declaredLicenses
             packageDetails["licenseConcluded"] = concludedLicense
             packageDetails["supplier"] = supplier
@@ -291,7 +295,8 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
                 packages.append(packageDetails)
             
             # Collect copyrights for project
-            projectCopyrights = list(set(projectCopyrights) | set(inventoryItem["copyrights"]))
+            if includeCopyrightsData:
+                projectCopyrights = list(set(projectCopyrights) | set(inventoryItem["copyrights"]))
 
     
         # See if there are any files that are not contained in inventory
@@ -307,7 +312,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
 
     ##############################
     if includeFileDetails and includeUnassociatedFiles and len(filesNotInInventory) > 0:
-        unassociatedFilesPackage, unassociatedFilesRelationships = manage_unassociated_files(filesNotInInventory, filePathsNotInInventoryToID, rootSPDXID, createOtherFilesPackage, projectCopyrights)
+        unassociatedFilesPackage, unassociatedFilesRelationships = manage_unassociated_files(filesNotInInventory, filePathsNotInInventoryToID, rootSPDXID, createOtherFilesPackage, projectCopyrights, includeCopyrightsData)
 
         if unassociatedFilesPackage["SPDXID"] == rootSPDXID:
             # Since this is the top level pacakge we need to update a few things for the package
@@ -322,10 +327,11 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
         #packageFiles[unassociatedFilesPackage["SPDXID"]] = filesNotInInventory # add for tag/value output
 
     # Grabbing Copyrights in Package is Copyright in associated files and unassociated files in inventory
-    logger.debug(packages)
-    for item in packages:
-        if item["copyrightText"] == "NOASSERTION":
-            item["copyrightText"] = process_copyrights(projectCopyrights)
+    if includeCopyrightsData:
+        for item in packages:
+            if item["copyrightText"] == "NOASSERTION":
+                item["copyrightText"] = process_copyrights(projectCopyrights)
+
     # Clean up the hasExtractedLicensingInfos comment field to remove the array and make a string
     for extractedLicense in hasExtractedLicensingInfos:
         comment =  hasExtractedLicensingInfos[extractedLicense]["comment"]
@@ -468,7 +474,7 @@ def manage_package_concluded_license(inventoryItem, hasExtractedLicensingInfos):
 
 
 #-------------------------------------------------------
-def manage_unassociated_files(filesNotInInventory, filePathtoID, rootSPDXID, createOtherFilesPackage, projectCopyrights):
+def manage_unassociated_files(filesNotInInventory, filePathtoID, rootSPDXID, createOtherFilesPackage, projectCopyrights, includeCopyrightsData):
 
     packageDetails = {}
     relationships = []
@@ -508,10 +514,12 @@ def manage_unassociated_files(filesNotInInventory, filePathtoID, rootSPDXID, cre
         fileRelationship["relationshipType"] = "CONTAINS"
         fileRelationship["relatedSpdxElement"] = fileSPDXID
         relationships.append(fileRelationship)
+        
         # Collecting all unassociated files copyrights
-        if fileDetails["copyrightText"] != "NONE":
-            unassociatedFilesCopyrights.append(fileDetails["copyrightText"])
-            projectCopyrights.append(fileDetails["copyrightText"])
+        if includeCopyrightsData and fileDetails["copyrightText"] != "NONE":
+            unassociatedFilesCopyrights.extend(fileDetails["copyrightText"] if isinstance(fileDetails["copyrightText"], list) else [fileDetails["copyrightText"]])
+            projectCopyrights.extend(fileDetails["copyrightText"] if isinstance(fileDetails["copyrightText"], list) else [fileDetails["copyrightText"]])
+
     # Create a hash of the file hashes for PackageVerificationCode 
     try:
         stringHash = ''.join(sorted(fileHashes))
@@ -532,7 +540,7 @@ def manage_unassociated_files(filesNotInInventory, filePathtoID, rootSPDXID, cre
     packageDetails["name"] = unassociatedFilesPackageName
     packageDetails["homepage"] = "NOASSERTION"
     packageDetails["downloadLocation"] = "NOASSERTION"  # TODO - use a inventory custom field to store this?
-    packageDetails["copyrightText"] = process_copyrights(unassociatedFilesCopyrights)     # TODO - use a inventory custom field to store this?
+    packageDetails["copyrightText"] = (process_copyrights(unassociatedFilesCopyrights) if includeCopyrightsData else "NOASSERTION")
     packageDetails["licenseDeclared"] = "NOASSERTION"
     packageDetails["licenseConcluded"] = "NOASSERTION"
     packageDetails["supplier"] = "Organization: Various, Person: Various"

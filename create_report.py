@@ -190,6 +190,7 @@ def verifyOptions(reportOptions):
 	includeFileDetails = reportOptions["includeFileDetails"]
 	includeUnassociatedFiles = reportOptions["includeUnassociatedFiles"]
 	createOtherFilesPackage = reportOptions["createOtherFilesPackage"]
+	includeCopyrightsData = reportOptions["includeCopyrightsData"]
 
 	if includeChildProjects.lower() in trueOptions:
 		reportOptions["includeChildProjects"] = True
@@ -228,6 +229,12 @@ def verifyOptions(reportOptions):
 	else:
 		reportOptions["errorMsg"].append("Invalid option for where to map unassocated files: <b>%s</b>.  Valid options are <b>True/False</b>" %createOtherFilesPackage)
 
+	if includeCopyrightsData.lower() in trueOptions:
+		reportOptions["includeCopyrightsData"] = True
+	elif includeCopyrightsData.lower() in falseOptions:
+		reportOptions["includeCopyrightsData"] = False
+	else:
+		reportOptions["errorMsg"].append("Invalid option for including copyright projects: <b>%s</b>.  Valid options are <b>True/False</b>" %includeCopyrightsData)
 
 	if not reportOptions["errorMsg"]:
 		reportOptions.pop('errorMsg', None)
