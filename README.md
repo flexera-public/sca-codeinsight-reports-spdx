@@ -22,7 +22,6 @@ Project level custom fields, **Application Name**, **Application Version** and *
 |1.3.x |2022R1  |
 |3.x.x |2023R2  |
 |3.1.x |2023R3  |
-|3.3.x |2025R1  |
 
 **Repository Cloning**
 
@@ -93,6 +92,7 @@ This report is executed directly from within Revenera's Code Insight product. Fr
 - Include Non Runtime dependency items (True/False) - Should the report include data for dependencies that are not of a Runtime scope?
 - Including file level details (True/False) - Determine if any file data will be included or not.
 - Including files not associated with inventory items (True/False) - Should files not associated with inventory items be included in the report
+- Including Copyrights data (True/False) - Determine if copyright data will be included or not.
 - Create OtherFiles package to contain all files that are not associated to other inventory items.  If the above option is true and this is false all files will be linked to the top level package instead of the OtherFiles Package
 
 The generated reports will utilize the following Project Custom Fields if available
