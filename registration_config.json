@@ -51,6 +51,16 @@
             "defaultValue" : "False",
             "required" : "true",
             "order" : "5"
+        },
+        "option6" :
+        {
+            "name" : "includeCopyrightsData",
+            "label" : "Include copyright data? (True/False)",
+            "description" : "Should the report include copyright data? <b>(True/False)</b>",
+            "type" : "string",
+            "defaultValue" : "False",
+            "required" : "true",
+            "order" : "6"
         }
 
     }

@@ -15,11 +15,11 @@ import SPDX_license_mappings
 logger = logging.getLogger(__name__)
 
 #-------------------------------------------------
-def manage_file_details(baseURL, authToken, projectID, hasExtractedLicensingInfos, includeUnassociatedFiles):
+def manage_file_details(baseURL, authToken, projectID, hasExtractedLicensingInfos, includeUnassociatedFiles, includeCopyrightsData):
 
     filePathToID, fileDetails = get_scanned_file_details(baseURL, authToken, projectID, includeUnassociatedFiles)
 
-    fileDetails, hasExtractedLicensingInfos = get_file_evidence(baseURL, authToken, projectID, fileDetails, hasExtractedLicensingInfos)
+    fileDetails, hasExtractedLicensingInfos = get_file_evidence(baseURL, authToken, projectID, fileDetails, hasExtractedLicensingInfos, includeCopyrightsData)
 
     return filePathToID, fileDetails, hasExtractedLicensingInfos
 
@@ -93,7 +93,7 @@ def get_scanned_file_details(baseURL, authToken, projectID, includeUnassociatedF
 
 
 #-----------------------------
-def get_file_evidence(baseURL, authToken, projectID, fileDetails, hasExtractedLicensingInfos):
+def get_file_evidence(baseURL, authToken, projectID, fileDetails, hasExtractedLicensingInfos, includeCopyrightsData):
 
     # Collect the copyright/license data per file and create dict based on
     print("                + Collect file level evidence.")
@@ -106,7 +106,8 @@ def get_file_evidence(baseURL, authToken, projectID, fileDetails, hasExtractedLi
 
         remoteFile = bool(fileEvidenceDetails["remote"])
         scannedFileId = fileEvidenceDetails["scannedFileId"]
-        copyrightEvidenceFound= fileEvidenceDetails["copyRightMatches"]
+        if includeCopyrightsData:
+            copyrightEvidenceFound= fileEvidenceDetails["copyRightMatches"]
         licenseEvidenceFound = list(set(fileEvidenceDetails["licenseMatches"]))
 
         uniqueFileID = str(scannedFileId) + ("-r" if remoteFile else "-s")
@@ -115,18 +116,19 @@ def get_file_evidence(baseURL, authToken, projectID, fileDetails, hasExtractedLi
         if uniqueFileID not in fileDetails:
             continue
 
-        ##########################################
-        # Manage File Level Copyrights
-        # Normalize the copyrights in case there are any encoding issues 
-        copyrightEvidenceFound = [unicodedata.normalize('NFKD', x).encode('ASCII', 'ignore').decode('utf-8') for x in copyrightEvidenceFound]
+        if includeCopyrightsData:
+            ##########################################
+            # Manage File Level Copyrights
+            # Normalize the copyrights in case there are any encoding issues 
+            copyrightEvidenceFound = [unicodedata.normalize('NFKD', x).encode('ASCII', 'ignore').decode('utf-8') for x in copyrightEvidenceFound]
 
-        if copyrightEvidenceFound:
-            logger.info("            Copyright evidence discovered")
-            # The response has the copyright details as a list so convert to a string
-            copyrightEvidenceFound = " | ".join(copyrightEvidenceFound)
-        else:
-            logger.info("            No copyright evidence discovered")
-            copyrightEvidenceFound = "NONE"
+            if copyrightEvidenceFound:
+                logger.info("            Copyright evidence discovered")
+                # The response has the copyright details as a list so convert to a string
+                copyrightEvidenceFound = " | ".join(copyrightEvidenceFound)
+            else:
+                logger.info("            No copyright evidence discovered")
+                copyrightEvidenceFound = "NONE"
 
         ##########################################
         # Manage File Level Licenses
@@ -175,7 +177,7 @@ def get_file_evidence(baseURL, authToken, projectID, fileDetails, hasExtractedLi
             licenseEvidenceFound = ["NONE"]
             
         # Add the evidence details to the appropriate area for this file
-        fileDetails[uniqueFileID]["copyrightText"]= copyrightEvidenceFound
+        fileDetails[uniqueFileID]["copyrightText"] = (copyrightEvidenceFound if includeCopyrightsData else "NOASSERTION")
         fileDetails[uniqueFileID]["licenseConcluded"]= "NOASSERTION"
         fileDetails[uniqueFileID]["licenseInfoInFiles"]= licenseEvidenceFound
 
