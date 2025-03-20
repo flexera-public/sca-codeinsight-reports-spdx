@@ -150,11 +150,11 @@ def generate_tagvalue_report(reportData):
                                 
             report_ptr.write("LicenseConcluded: %s\n" %file["licenseConcluded"])
 
-            if len(file["copyrightText"]) > 0:
+            if len(file.get("copyrightText", "")) > 0:
                 report_ptr.write("FileCopyrightText: <text>%s</text>\n" %file["copyrightText"])
                 
 
-            for license in file["licenseInfoInFiles"]:
+            for license in file.get("licenseInfoInFiles", []):
                 report_ptr.write("LicenseInfoInFile: %s\n" %license)
 
             report_ptr.write("\n")
