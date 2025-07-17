@@ -4,11 +4,11 @@ The `sca-codeinsight-reports-spdx` repository is a example report for Revenera's
 
 Both JSON and tag/value SPDX documents will be created
 
-A custom inventory field **Package Supplier** can be used to force a pacakge supplier value for a given SBOM entry.
+A custom inventory field **Package Supplier** can be used to force a package supplier value for a given SBOM entry.
 
 Project level custom fields, **Application Name**, **Application Version** and **Application Publisher** can also be used for the creation of the overall SPDX document name to replace the project name and the **Application Publisher** entry will be assigned to the top level package's supplier field.
 
- **Supported SPDX Version Output - 2.2**
+ **Supported SPDX Version Output - 2.3**
 
 ## Prerequisites
 
@@ -22,24 +22,11 @@ Project level custom fields, **Application Name**, **Application Version** and *
 |1.3.x |2022R1  |
 |3.x.x |2023R2  |
 |3.1.x |2023R3  |
+|4.0.x |2023R3  |
 
 **Repository Cloning**
 
 This repository should be cloned directly into the **$CODEINSIGHT_INSTALLDIR/custom_report_scripts** directory. If no prior custom reports has been installed, this directory will need to be created prior to cloning.
-
-**Submodule Repositories**
-
-This repository contains two submodule repositories for code that is used across multiple projects.  There are two options for cloning this repository and ensuring that the required submodules are also installed.
-
-Clone the report repository use the recursive option to automatically pull in the required submodules
-
-	git clone --recursive
-
- Alternatively clone the report repository and then clone the submodules separately by entering the cloned directory and then pulling down the necessary submodules code via   
-
-	git submodule init
-
-	git submodule update
 
 **Python Requirements**
 
@@ -47,8 +34,35 @@ This repository requires the python requests module to interact with the Code In
 
     pip install -r requirements.txt
 
+**Offline Mode**
+The sca-codeinsight-reports-spdx custom report can be used in offline mode, meaning the Code Insight server does not need to be running.
+
+For Windows:
+Open a command prompt at the location:
+$CODEINSIGHT_INSTALLDIR/custom_report_scripts/sca-codeinsight-reports-spdx
+Run the following command
+python create_report.py -pid <projectID> -reportOpts "{\"includeChildProjects\": \"True\", \"includeNonRuntimeInventory\": \"False\", \"includeFileDetails\": \"True\", \"includeUnassociatedFiles\": \"False\", \"createOtherFilesPackage\": \"False\", \"includeCopyrightsData\": \"False\"}"
+
+For Linux:
+Open a terminal at the location:
+$CODEINSIGHT_INSTALLDIR/custom_report_scripts/sca-codeinsight-reports-spdx
+Run the following command:
+python3 create_report.py -pid <projectID> -reportOpts '{"includeChildProjects":"True","includeNonRuntimeInventory":"False","includeFileDetails":"True","includeUnassociatedFiles":"False","createOtherFilesPackage":"False","includeCopyrightsData":"False"}'
+
+Notes:
+The -pid flag is mandatory.
+The -reportOpts flag is optional. If omitted, all values will set to default.
+Example: python3 create_report.py -pid <projectID>
+
+Report Locations:
+Recently Generated Reports:
+$CODEINSIGHT_INSTALLDIR/custom_report_scripts/sca-codeinsight-reports-spdx/DBReports
+Older Reports:
+$CODEINSIGHT_INSTALLDIR/custom_report_scripts/sca-codeinsight-reports-spdx/DBReports/Backup
+
 ## Configuration and Report Registration
- 
+
+It is optional but recommended to have the Code Insight server up and running if you intend to trigger this report from the Code Insight UI under the reports tab.
 For registration purposes the file **server_properties.json** should be created and located in the **$CODEINSIGHT_INSTALLDIR/custom_report_scripts/** directory.  This file contains a json with information required to register the report within Code Insight as shown  here:
 
 >     {

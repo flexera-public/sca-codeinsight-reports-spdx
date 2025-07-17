@@ -5,27 +5,28 @@ SPDX-License-Identifier: MIT
 
 Author : sgeary  
 Created On : Tue Aug 29 2023
+Modified By : sarthak
+Modified On: Mon 07 2025
 File : report_data_files.py
 '''
 import logging, unicodedata, re
-import common.api.project.get_scanned_files
-import common.api.project.get_project_evidence
+import report_data_db
 import SPDX_license_mappings
 
 logger = logging.getLogger(__name__)
 
 #-------------------------------------------------
-def manage_file_details(baseURL, authToken, projectID, hasExtractedLicensingInfos, includeUnassociatedFiles, includeCopyrightsData):
+def manage_file_details(projectID, hasExtractedLicensingInfos, includeUnassociatedFiles, includeCopyrightsData):
 
-    filePathToID, fileDetails = get_scanned_file_details(baseURL, authToken, projectID, includeUnassociatedFiles)
+    filePathToID, fileDetails = get_scanned_file_details(projectID, includeUnassociatedFiles)
 
-    fileDetails, hasExtractedLicensingInfos = get_file_evidence(baseURL, authToken, projectID, fileDetails, hasExtractedLicensingInfos, includeCopyrightsData)
+    fileDetails, hasExtractedLicensingInfos = get_file_evidence(projectID, fileDetails, hasExtractedLicensingInfos, includeCopyrightsData)
 
     return filePathToID, fileDetails, hasExtractedLicensingInfos
 
 
 #-----------------------------
-def get_scanned_file_details(baseURL, authToken, projectID, includeUnassociatedFiles):
+def get_scanned_file_details(projectID, includeUnassociatedFiles):
 
     filePathToID = {} # Allow for mapping from inventory file path to details about the file itself
     filePathToID["inInventory"] = {}
@@ -35,28 +36,33 @@ def get_scanned_file_details(baseURL, authToken, projectID, includeUnassociatedF
     # Collect a list of the scanned files
     print("                + Collect data for all scanned files.")
     logger.info("                Collect data for all scanned.")
-    scannedFiles = common.api.project.get_scanned_files.get_scanned_files_details_with_MD5_and_SHA1(baseURL, projectID, authToken)
-    print("                - Collected data for %s scanned file(s)." %len(scannedFiles))
-    logger.info("                Collected data for %s files." %len(scannedFiles))
+    scannedFiles = report_data_db.get_server_scanned_files(projectID, includeUnassociatedFiles)
+    for file in scannedFiles:
+        file["remote"] = False
+
+    remoteFiles = report_data_db.get_remote_scanned_files(projectID, includeUnassociatedFiles)
+    logger.info("                Collected remote scanned files data for %s files." %len(remoteFiles))
+    for file in remoteFiles:
+        file["remote"] = True
+    
+    allScannedFiles = scannedFiles + remoteFiles
 
     # Cycle through each scanned file
-    for scannedFile in scannedFiles:
+    for scannedFile in allScannedFiles:
         scannedFileDetails = {}
 
         scannedFileId = scannedFile["fileId"]
         fileName = scannedFile["filePath"]  
-        inInventory = scannedFile["inInventory"]
-        remoteFile = scannedFile["remote"]
+        
+        # The custom query returns the inventory ID or None for inInventory
+        inInventory = scannedFile["inInventory"] != None
 
-        # # Don't collect any data for the files we don't care about
-        # if inInventory == "false" and not includeUnassociatedFiles:
-        #     continue 
+        # Don't collect any data for the files we don't care about if the option is not set
+        if not includeUnassociatedFiles and not inInventory:
+            continue
 
-        # Create a unique identifier based on fileID and scan location
-        if remoteFile == "false":
-            uniqueFileID = str(scannedFileId) + "-s"
-        else:
-            uniqueFileID = str(scannedFileId) + "-r"
+        file_type_suffix = "-r" if scannedFile["remote"] else "-s"
+        uniqueFileID = str(scannedFileId) + file_type_suffix
 
         scannedFileDetails["SPDXID"] = "SPDXRef-File-" + uniqueFileID
         scannedFileDetails["fileName"] = fileName
@@ -84,7 +90,7 @@ def get_scanned_file_details(baseURL, authToken, projectID, includeUnassociatedF
         filePathDetails["uniqueFileID"] = uniqueFileID
         filePathDetails["fileSHA1"] = scannedFile["fileSHA1"]
 
-        if inInventory == "true":
+        if inInventory:
             filePathToID["inInventory"][fileName] = filePathDetails
         else:
             filePathToID["notInInventory"][fileName] = filePathDetails
@@ -93,22 +99,24 @@ def get_scanned_file_details(baseURL, authToken, projectID, includeUnassociatedF
 
 
 #-----------------------------
-def get_file_evidence(baseURL, authToken, projectID, fileDetails, hasExtractedLicensingInfos, includeCopyrightsData):
+def get_file_evidence(projectID, fileDetails, hasExtractedLicensingInfos, includeCopyrightsData):
 
     # Collect the copyright/license data per file and create dict based on
     print("                + Collect file level evidence.")
     logger.info("            + Collect file level evidence")
-    projectEvidenceDetails = common.api.project.get_project_evidence.get_project_evidence(baseURL, projectID, authToken)
+    projectEvidenceDetails = report_data_db.get_project_evidence(projectID)
     print("                - File level evidence has been collected.") 
     logger.info("               - File level evidence has been collected.") 
 
-    for fileEvidenceDetails in projectEvidenceDetails["data"]:
+    # Structure the evidence details by ID
+    structuredEvidenceDetails = structure_evidence_details(projectEvidenceDetails)
+    for fileId, fileEvidenceDetails in structuredEvidenceDetails.items():
 
-        remoteFile = bool(fileEvidenceDetails["remote"])
-        scannedFileId = fileEvidenceDetails["scannedFileId"]
+        remoteFile = False if fileEvidenceDetails["REMOTE_ID"] is None else True
+        scannedFileId = fileEvidenceDetails["ID"]
         if includeCopyrightsData:
-            copyrightEvidenceFound= fileEvidenceDetails["copyRightMatches"]
-        licenseEvidenceFound = list(set(fileEvidenceDetails["licenseMatches"]))
+            copyrightEvidenceFound = fileEvidenceDetails["copyRightMatches"]
+        licenseEvidenceFound = fileEvidenceDetails["licenseMatches"]
 
         uniqueFileID = str(scannedFileId) + ("-r" if remoteFile else "-s")
 
@@ -116,7 +124,7 @@ def get_file_evidence(baseURL, authToken, projectID, fileDetails, hasExtractedLi
         if uniqueFileID not in fileDetails:
             continue
 
-        if includeCopyrightsData:
+        if includeCopyrightsData and copyrightEvidenceFound:
             ##########################################
             # Manage File Level Copyrights
             # Normalize the copyrights in case there are any encoding issues 
@@ -129,6 +137,8 @@ def get_file_evidence(baseURL, authToken, projectID, fileDetails, hasExtractedLi
             else:
                 logger.info("            No copyright evidence discovered")
                 copyrightEvidenceFound = "NONE"
+        else:
+            copyrightEvidenceFound = "NONE" if includeCopyrightsData else "NOASSERTION"
 
         ##########################################
         # Manage File Level Licenses
@@ -182,3 +192,48 @@ def get_file_evidence(baseURL, authToken, projectID, fileDetails, hasExtractedLi
         fileDetails[uniqueFileID]["licenseInfoInFiles"]= licenseEvidenceFound
 
     return fileDetails, hasExtractedLicensingInfos
+
+
+#-----------------------------
+def structure_evidence_details(projectEvidenceDetails):
+    """
+    Structure evidence details by ID, collecting non-None values for LICENSE, EMAILURL, COPYRIGHT, SEARCHSTRING into lists
+    """
+    structuredData = {}
+    
+    for evidence in projectEvidenceDetails:
+        fileId = evidence["ID"]
+        
+        # Initialize the structure for this ID if it doesn't exist
+        if fileId not in structuredData:
+            structuredData[fileId] = {
+                "ID": fileId,
+                "PATH": evidence["PATH"],
+                "ALIAS": evidence["ALIAS"],
+                "DIGEST": evidence["DIGEST"],
+                "MATCHES": evidence["MATCHES"],
+                "REMOTE_ID": evidence["REMOTE_ID"],
+                "licenseMatches": [],
+                "copyRightMatches": [],
+                "emailUrlMatches": [],
+                "searchTextMatches": []
+            }
+        
+        # Collect non-None values for each category
+        if evidence["LICENSE"] is not None and evidence["LICENSE"] not in structuredData[fileId]["licenseMatches"]:
+            structuredData[fileId]["licenseMatches"].append(evidence["LICENSE"])
+            
+        if evidence["COPYRIGHT"] is not None and evidence["COPYRIGHT"] not in structuredData[fileId]["copyRightMatches"]:
+            structuredData[fileId]["copyRightMatches"].append(evidence["COPYRIGHT"])
+            
+        if evidence["EMAILURL"] is not None and evidence["EMAILURL"] not in structuredData[fileId]["emailUrlMatches"]:
+            structuredData[fileId]["emailUrlMatches"].append(evidence["EMAILURL"])
+            
+        if evidence["SEARCHSTRING"] is not None and evidence["SEARCHSTRING"] not in structuredData[fileId]["searchTextMatches"]:
+            structuredData[fileId]["searchTextMatches"].append(evidence["SEARCHSTRING"])
+    
+    return structuredData
+
+
+if __name__ == "__main__":
+    manage_file_details(20, {}, True, True)
