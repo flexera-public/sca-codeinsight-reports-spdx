@@ -3,25 +3,31 @@ Copyright 2022 Flexera Software LLC
 See LICENSE.TXT for full license text
 SPDX-License-Identifier: MIT
 
-Author : sgeary  
+Author : sgeary
 Created On : Fri May 20 2022
+Modified By : sarthak
+Modified On: Mon 07 2025
 File : purl.py
 '''
 
-from email.mime import base
 import logging
-
-import common.api.component.get_component_details
+import report_data_db
 logger = logging.getLogger(__name__)
 
 
 ##############################
-def get_purl_string(inventoryItem, baseURL, authToken):
+def get_purl_string(inventoryItem, componentVersionName,inventoryItemName):
     logger.info("entering get_purl_string")
 
     purlString = "pkg:"  # Default value 
 
-    forge = inventoryItem["componentForgeName"]
+    componentId = inventoryItem["componentId"]
+
+    # Since the summary does not have the forge grab that plus title from component lookup
+    componentDetails = report_data_db.get_component_forge(componentId)
+    forge = componentDetails[0]["forge"]
+    componentTitle = componentDetails[0]["title"]
+
     componentName = inventoryItem["componentName"]
     componentVersionName = inventoryItem["componentVersionName"]
 
@@ -31,8 +37,8 @@ def get_purl_string(inventoryItem, baseURL, authToken):
         componentVersionName = componentVersionName.replace(" ", "")
         logger.debug("    is now: %s" %componentVersionName)
 
-    componentId = inventoryItem["componentId"]
-    inventoryItemName = inventoryItem["name"]
+
+    inventoryItemName = inventoryItem["inventoryItemName"]
 
     logger.info("    Forge: %s  Inventory Item: %s" %(forge, inventoryItemName))
 
@@ -48,7 +54,8 @@ def get_purl_string(inventoryItem, baseURL, authToken):
         else:
             purlRepo = forge
 
-        if forge == "pypi":
+
+        if forge in ["pypi"]:
             purlName = componentName.replace("_", "-")
         else:
             purlName = componentName
@@ -77,10 +84,6 @@ def get_purl_string(inventoryItem, baseURL, authToken):
         purlName = componentName
         purlVersion = componentVersionName
 
-        # Get namespace from component lookup
-        componentDetails = common.api.component.get_component_details.get_component_details_v3_summary(baseURL, componentId, authToken)
-        componentTitle = componentDetails["data"]["title"]
-
         purlNameSpace = componentTitle.split("/")[0] # parse groupId from component title (start of string to forward slash "/")
 
 
@@ -90,9 +93,6 @@ def get_purl_string(inventoryItem, baseURL, authToken):
         purlNameSpace = ""
         purlVersion = componentVersionName  
         
-        # Get case sensitive name from component lookup
-        componentDetails = common.api.component.get_component_details.get_component_details_v3_summary(baseURL, componentId, authToken)
-        componentTitle = componentDetails["data"]["title"]
         purlName = componentTitle.split(" - ")[0] # parse case-sensitive name from component title (start of string to dash "-" minus 1)
 
     elif forge in ["npm"]:
@@ -108,9 +108,6 @@ def get_purl_string(inventoryItem, baseURL, authToken):
         purlRepo = "composer"
         purlNameSpace = ""
 
-        # Get case sensitive name from component lookup
-        componentDetails = common.api.component.get_component_details.get_component_details_v3_summary(baseURL, componentId, authToken)
-        componentTitle = componentDetails["data"]["title"]
         purlName = componentTitle.split(" - ")[0] # parse case-sensitive name from component title (start of string to dash "-" minus 1)
 
         purlVersion = componentVersionName  
@@ -120,10 +117,7 @@ def get_purl_string(inventoryItem, baseURL, authToken):
         purlRepo = forge
         purlVersion = componentVersionName  
 
-        # Get case sensitive name from component lookup
-        componentDetails = common.api.component.get_component_details.get_component_details_v3_summary(baseURL, componentId, authToken)
-        componentTitle = componentDetails["data"]["title"]
-       
+      
         componentName = componentTitle.split(" - ")[0] # parse case-sensitive name from component title (start of string to dash "-" minus 1)
 
         purlNameSpace, purlName  = componentName.split("/") # parse groupId from component title (start of string to forward slash "/")
@@ -136,14 +130,13 @@ def get_purl_string(inventoryItem, baseURL, authToken):
         logger.error("        Unsupported forge")
         purlString = ""
 
-
     # Is there a value
     if purlString != "":
         if purlNameSpace == "":
             purlString = "pkg:" + purlRepo + "/" + purlName + "@" + purlVersion 
         else:
             purlString = "pkg:" + purlRepo + "/" + purlNameSpace +"/" + purlName + "@" + purlVersion 
-        
+
         if purlVersion == "N/A":
             purlString = purlString[:-4]
 

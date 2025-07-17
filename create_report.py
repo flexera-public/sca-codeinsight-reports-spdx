@@ -5,8 +5,11 @@ SPDX-License-Identifier: MIT
 
 Author : sgeary  
 Created On : Wed Oct 21 2020
+Modified By : sarthak
+Modified On: Mon 07 2025
 File : create_report.py
 '''
+import shutil
 import sys, os, logging, argparse, json, re
 from datetime import datetime
 
@@ -14,9 +17,8 @@ import _version
 import report_data
 import report_artifacts
 import report_errors
-import common.api.project.upload_reports
-import common.api.system.release
-import common.report_archive
+import upload_reports
+import report_archive
 
 
 ###################################################################################
@@ -39,12 +41,26 @@ logging.getLogger("urllib3").setLevel(logging.WARNING)  # Disable logging for re
 
 ####################################################################################
 # Create command line argument options
-parser = argparse.ArgumentParser()
+parser = argparse.ArgumentParser(
+    description="""Usage Examples:
+
+Windows:
+  python create_report.py -pid <projectID> -reportOpts "{\\"includeChildProjects\\": \\"True\\", \\"includeNonRuntimeInventory\\": \\"False\\", \\"includeFileDetails\\": \\"True\\", \\"includeUnassociatedFiles\\": \\"False\\", \\"createOtherFilesPackage\\": \\"False\\", \\"includeCopyrightsData\\": \\"False\\"}"   #####      
+
+Linux:
+  python3 create_report.py -pid <projectID> -reportOpts '{"includeChildProjects":"True","includeNonRuntimeInventory":"False","includeFileDetails":"True","includeUnassociatedFiles":"False","createOtherFilesPackage":"False","includeCopyrightsData":"False"}'   #####      
+
+Note:
+  - The -pid flag is mandatory.
+  - The -reportOpts flag is optional. If omitted, all values will default to "includeChildProjects":"True","includeNonRuntimeInventory":"False","includeFileDetails":"True","includeUnassociatedFiles":"False","createOtherFilesPackage":"False","includeCopyrightsData":"False".
+  Example: python3 create_report.py -pid <projectID>
+"""
+)
 parser.add_argument('-pid', "--projectID", help="Project ID")
-parser.add_argument("-rid", "--reportID", help="Report ID")
-parser.add_argument("-authToken", "--authToken", help="Code Insight Authorization Token")
-parser.add_argument("-baseURL", "--baseURL", help="Code Insight Core Server Protocol/Domain Name/Port.  i.e. http://localhost:8888 or https://sca.codeinsight.com:8443")
-parser.add_argument("-reportOpts", "--reportOptions", help="Options for report content")
+parser.add_argument("-rid", "--reportID", help="Report ID(Optional)")
+parser.add_argument("-authToken", "--authToken", help="Code Insight Authorization Token(Optional)")
+parser.add_argument("-baseURL", "--baseURL", help="Code Insight Core Server Protocol/Domain Name/Port(Optional).  i.e. http://localhost:8888 or https://sca.codeinsight.com:8443")
+parser.add_argument("-reportOpts", "--reportOptions", help="Options for report content(Optional)")
 
 #----------------------------------------------------------------------#
 def main():
@@ -57,8 +73,7 @@ def main():
 	print("    Logfile: %s" %(logfileName))
 
     #####################################################################################################
-    #  Code Insight System Information
-    #  Pull the base URL from the same file that the installer is creating
+
 	if os.path.exists(propertiesFile):
 		try:
 			file_ptr = open(propertiesFile, "r")
@@ -84,26 +99,39 @@ def main():
 
 	# See what if any arguments were provided
 	args = parser.parse_args()
-	projectID = args.projectID
-	reportID = args.reportID
-	authToken = args.authToken
-	reportOptions = args.reportOptions
+	projectID = (
+        args.projectID
+        if args.projectID is not None
+        else sys.exit("Project ID -pid flag is mandatory")
+    )
+	reportID = (
+        args.reportID
+        if args.reportID is not None
+        else print("Ignoring as -rid flag is not needed")
+    )
+	authToken = (
+        args.authToken
+        if args.authToken is not None
+        else print("Ignoring as -authToken flag is not needed")
+    )
+	if args.reportOptions is not None:
+		reportOptions = args.reportOptions
+		if sys.platform.startswith("linux"):
+			logger.info(f"Before Double Quote replacement: {reportOptions}")
+			if '""' in reportOptions:
+				reportOptions = reportOptions.replace('""', '"')[1:-1]
+	else:
+		reportOptions = '{"includeChildProjects":"True","includeNonRuntimeInventory":"False","includeFileDetails":"True","includeUnassociatedFiles":"False","createOtherFilesPackage":"False","includeCopyrightsData":"False"}'
+		if sys.platform.startswith("linux"):
+			reportOptions = '{"includeChildProjects":"True","includeNonRuntimeInventory":"False","includeFileDetails":"True","includeUnassociatedFiles":"False","createOtherFilesPackage":"False","includeCopyrightsData":"False"}'
+	logger.info(f"Using default report options: {reportOptions}")
 
 	fileNameTimeStamp = datetime.now().strftime("%Y%m%d-%H%M%S")
 	reportTimeStamp = datetime.strptime(fileNameTimeStamp, "%Y%m%d-%H%M%S").strftime("%B %d, %Y at %H:%M:%S")
 	spdxTimeStamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
-
-	# Based on how the shell pass the arguemnts clean up the options if on a linux system:w
-	if sys.platform.startswith('linux'):
-		reportOptions = reportOptions.replace('""', '"')[1:-1]
-	
 	reportOptions = json.loads(reportOptions)
 	reportOptions = verifyOptions(reportOptions) 
 
-	releaseDetails = common.api.system.release.get_release_details(baseURL, authToken)
-	releaseVersion = releaseDetails["fnci.release.name"].replace(" ", "")
-
-	logger.debug("Code Insight Release: %s" %releaseVersion)
 	logger.debug("Custom Report Provided Arguments:")	
 	logger.debug("    projectID:  %s" %projectID)	
 	logger.debug("    reportID:   %s" %reportID)	
@@ -115,7 +143,7 @@ def main():
 	reportData["reportName"] = reportName
 	reportData["reportVersion"] = reportVersion
 	reportData["reportOptions"] = reportOptions
-	reportData["releaseVersion"] = releaseVersion
+	reportData["releaseVersion"] = "N/A"
 	reportData["fileNameTimeStamp"] = fileNameTimeStamp
 	reportData["reportTimeStamp"] = reportTimeStamp
 	reportData["spdxTimeStamp"] = spdxTimeStamp
@@ -134,7 +162,7 @@ def main():
 		print("    *** ERROR  ***  Error found validating report options")
 	else:
 		print("    Collect data for %s" %reportName)
-		reportData = report_data.gather_data_for_report(baseURL, projectID, authToken, reportData)
+		reportData = report_data.gather_data_for_report(projectID, reportData)
 		print("    Report data has been collected")
 
 		projectName = reportData["topLevelProjectName"]
@@ -158,18 +186,78 @@ def main():
 				print("       - %s"%report)
 
 	print("    Create report archive for upload")
-	uploadZipfile = common.report_archive.create_report_zipfile(reports, reportFileNameBase)
+	uploadZipfile = report_archive.create_report_zipfile(reports, reportFileNameBase)
 	print("    Upload zip file creation completed")
-	common.api.project.upload_reports.upload_project_report_data(baseURL, projectID, reportID, authToken, uploadZipfile)
-	print("    Report uploaded to Code Insight")
+	if authToken is not None:
+		upload_reports.upload_project_report_data(baseURL, projectID, reportID, authToken, uploadZipfile)
+		print("    Report uploaded to Code Insight")
 
-	#########################################################
-	# Remove the file since it has been uploaded to Code Insight
-	try:
-		os.remove(uploadZipfile)
-	except OSError:
-		logger.error("Error removing %s" %uploadZipfile)
-		print("Error removing %s" %uploadZipfile)
+		#########################################################
+		# Remove the file since it has been uploaded to Code Insight
+		try:
+			os.remove(uploadZipfile)
+		except OSError:
+			logger.error("Error removing %s" %uploadZipfile)
+			print("Error removing %s" %uploadZipfile)
+	else:
+        # Get the current path and directory
+		current_path = os.path.abspath(__file__)
+		current_directory = os.path.dirname(current_path)
+		logger.info(f"Current directory: {current_directory}")
+
+        # Define the DBReports directory path
+		quickDBReports_dir = os.path.join(current_directory, "reportsBackup")
+
+        # Check if quickDBReports directory exists, if not create it
+		if not os.path.exists(quickDBReports_dir):
+			os.makedirs(quickDBReports_dir)
+			logger.info(f"Created directory: {quickDBReports_dir}")
+
+        # Check if there are any previous reports in quickDBReports directory
+		previous_reports = [
+            f
+            for f in os.listdir(quickDBReports_dir)
+            if os.path.isfile(os.path.join(quickDBReports_dir, f))
+        ]
+		if previous_reports:
+            # Create a Backup directory inside quickDBReports
+			backup_dir = os.path.join(quickDBReports_dir, "Backup")
+			if not os.path.exists(backup_dir):
+				os.makedirs(backup_dir)
+				logger.info(f"Created backup directory: {backup_dir}")
+
+            # Create a timestamped backup directory inside Backup
+			timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+			timestamped_backup_dir = os.path.join(backup_dir, f"Backup_{timestamp}")
+			os.makedirs(timestamped_backup_dir)
+			logger.info(
+                f"Created timestamped backup directory: {timestamped_backup_dir}"
+            )
+
+            # Move all previous reports to the timestamped backup directory
+			for report in previous_reports:
+				shutil.move(
+                    os.path.join(quickDBReports_dir, report),
+                    os.path.join(timestamped_backup_dir, report),
+                )
+				logger.info(f"Moved report {report} to backup directory")
+
+        # Move new reports to the quickDBReports directory
+		# Only move the uploadZipfile since that's the actual created file
+		if os.path.exists(uploadZipfile):
+			shutil.move(uploadZipfile, quickDBReports_dir)
+			logger.info(f"Moved new report {uploadZipfile} to {quickDBReports_dir}")
+		else:
+			logger.error(f"Report file {uploadZipfile} does not exist")
+			print(f"Error: Report file {uploadZipfile} does not exist")
+		
+		# Check if the base zip file exists before trying to move it
+		base_zip_file = reportFileNameBase + ".zip"
+		if os.path.exists(base_zip_file):
+			shutil.move(base_zip_file, quickDBReports_dir)
+			logger.info(f"Moved base report {base_zip_file} to {quickDBReports_dir}")
+		else:
+			logger.warning(f"Base zip file {base_zip_file} does not exist, skipping move")
 
 	logger.info("Completed creating %s" %reportName)
 	print("Completed creating %s" %reportName)
