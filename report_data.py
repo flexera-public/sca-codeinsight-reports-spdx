@@ -3,22 +3,22 @@ Copyright 2023 Flexera Software LLC
 See LICENSE.TXT for full license text
 SPDX-License-Identifier: MIT
 
-Author : sgeary  
+Author : sgeary
 Created On : Tue Aug 29 2023
+Modified By : sarthak
+Modified On: Mon 07 2025
 File : report_data.py
 '''
 
 import logging, unicodedata, uuid, re, hashlib
-import common.application_details
-import common.project_heirarchy
-import common.api.project.get_project_inventory
+import report_data_db
 import SPDX_license_mappings, purl
 import report_data_files
 
 logger = logging.getLogger(__name__)
 
 #-------------------------------------------------------------------#
-def gather_data_for_report(baseURL, projectID, authToken, reportData):
+def gather_data_for_report(projectID, reportData):
     logger.info("Entering gather_data_for_report")
 
     SPDXIDPackageNamePattern = r"[^a-zA-Z0-9\-\.]"  # PackageName is a unique string containing letters, numbers, ., and/or - so get rid of the rest
@@ -33,7 +33,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
     projectCopyrights = []
 
     reportOptions = reportData["reportOptions"]
-    releaseVersion = reportData["releaseVersion"]
+    releaseVersion = "N/A"
 
     # Parse report options
     includeChildProjects = reportOptions["includeChildProjects"]  # True/False
@@ -43,32 +43,36 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
     createOtherFilesPackage = reportOptions["createOtherFilesPackage"]  # True/False
     includeCopyrightsData = reportOptions["includeCopyrightsData"] # True/False
 
-    applicationDetails = common.application_details.determine_application_details(projectID, baseURL, authToken)
-    documentName = applicationDetails["applicationDocumentString"].replace(" ", "_")
-    projectList = common.project_heirarchy.create_project_heirarchy(baseURL, authToken, projectID, includeChildProjects)
-    topLevelProjectName = projectList[0]["projectName"]
+    project_Name = report_data_db.get_projects_data(projectID)
+    documentName = project_Name.replace(" ", "_")
+    if reportOptions["includeChildProjects"]:
+        projectList = report_data_db.get_child_projects(projectID)
+    else:
+        projectList = []
+        projectList.append(projectID)
+    topLevelProjectName = project_Name
 
-    SPDXVersion = "SPDX-2.2"
+    SPDXVersion = "SPDX-2.3"
     documentSPDXID = "SPDXRef-DOCUMENT"
     documentNamespace  = "http://spdx.org/spdxdocs/" + documentName + "-" + str(uuid.uuid1())
     creator = "Tool: Revenera SCA - Code Insight %s" %releaseVersion
-    dataLicense = "CC0-1.0"   
+    dataLicense = "CC0-1.0"
 
     # Create a root pacakge to reflect the application itself
     rootPackageName = re.sub('[^a-zA-Z0-9 \n\.]', '-', topLevelProjectName.replace(" ", "-")) # Replace spec chars with dash
-    rootSPDXID = "SPDXRef-Pkg-" + rootPackageName + "-" + projectID
+    rootSPDXID = "SPDXRef-Pkg-" + rootPackageName + "-" + str(projectID)
 
     packageDetails = {}
     packageDetails["SPDXID"] = rootSPDXID
     packageDetails["name"] = topLevelProjectName
-    packageDetails["supplier"] = "Organization: %s" %applicationDetails["applicationPublisher"]
+    packageDetails["supplier"] = "Organization: None"
     packageDetails["homepage"] = "NOASSERTION"
     packageDetails["downloadLocation"] = "NOASSERTION"
-    packageDetails["copyrightText"] = "NOASSERTION" 
+    packageDetails["copyrightText"] = "NOASSERTION"
     packageDetails["licenseDeclared"] = "NOASSERTION"
     packageDetails["licenseConcluded"] = "NOASSERTION"
     packageDetails["filesAnalyzed"] = False
-    
+
 
     packages.append(packageDetails)
 
@@ -77,14 +81,14 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
     packageRelationship["spdxElementId"] = documentSPDXID
     packageRelationship["relationshipType"] = "DESCRIBES"
     packageRelationship["relatedSpdxElement"] = rootSPDXID
-    
+
     if packageRelationship not in relationships:
         relationships.append(packageRelationship)
 
     #  Gather the details for each project and summerize the data
     for project in projectList:
-        projectID = project["projectID"]
-        projectName = project["projectName"]
+        projectID = project
+        projectName = report_data_db.get_projects_data(projectID)
 
         print("        Collect data for project: %s" %projectName)
 
@@ -93,8 +97,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
             # Collect file level details for files associated to this project
             print("            Collect file level details.")
             logger.info("            Collect file level details.")
-            filePathtoID, projectFileDetails, hasExtractedLicensingInfos = report_data_files.manage_file_details(baseURL, authToken, projectID, hasExtractedLicensingInfos, includeUnassociatedFiles, includeCopyrightsData)
-
+            filePathtoID, projectFileDetails, hasExtractedLicensingInfos = report_data_files.manage_file_details(projectID, hasExtractedLicensingInfos, includeUnassociatedFiles, includeCopyrightsData)
             # Create a full list of filename to ID mappings for non inventory items
             if includeUnassociatedFiles:
                 filePathsNotInInventoryToID.update(filePathtoID["notInInventory"])
@@ -104,51 +107,68 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
 
         print("            Collect inventory details.")
         logger.info("            Collect inventory details")
-        if includeCopyrightsData: 
-            projectInventory = common.api.project.get_project_inventory.get_project_inventory_details_with_copyrights(baseURL, projectID, authToken)
-        else:
-            projectInventory = common.api.project.get_project_inventory.get_project_inventory_details_without_vulnerabilities(baseURL, projectID, authToken)   
-        inventoryItems = projectInventory["inventoryItems"]
+        inventoryItems = report_data_db.get_inventory_data(projectID)
+        if inventoryItems is None:
+            inventoryItems = []
+        inventoryItemsCustom = report_data_db.get_inventory_data_custom(projectID)
+        if inventoryItemsCustom is not None and inventoryItemsCustom != []:
+            inventoryItems += inventoryItemsCustom
         print("            Inventory has been collected.")
-        logger.info("            Inventory has been collected.")      
+        logger.info("            Inventory has been collected.")
+
+        # To check inventory type between License Only or WIP
+        inventoriesNotInRepo = report_data_db.get_inventories_not_in_repo(projectID)    # To handle WIP and License Only inventories
+        inventoryItems += inventoriesNotInRepo
 
         for inventoryItem in inventoryItems:
             supplier = None # Set a default value to compare with
             inventoryType = inventoryItem["type"]
 
             # Check to see if this is a runtime dependency or not (added in 2023R3)
-            if "dependencyScope" in inventoryItem:              
-                if inventoryItem["dependencyScope"] == "Non Runtime":
+            if "dependencyScope" in inventoryItem:
+                dependencyScope = inventoryItem["dependencyScope"]
+
+                # Set dependency scope based on the value
+                if dependencyScope is None:
+                    dependencyScope = "NOT_AVAILABLE"
+                elif dependencyScope == "1":
+                    dependencyScope = "NON_RUNTIME_DEPENDENCY"
+                elif dependencyScope == "0":
+                    dependencyScope = "RUNTIME_DEPENDENCY"
+                else:
+                    dependencyScope = "NOT_AVAILABLE"
+
+                # Update the inventory item with the processed value
+                inventoryItem["dependencyScope"] = dependencyScope
+
+                if dependencyScope == "NON_RUNTIME_DEPENDENCY":
                     # This is a non runtime dependency so should it be included or not?
                     if not includeNonRuntimeInventory:
                         continue
+            else:
+                # If dependencyScope key doesn't exist, set it to NOT_AVAILABLE
+                inventoryItem["dependencyScope"] = "NOT_AVAILABLE"
 
 
             externalRefs = []  # For now just holds the purl but in the future could hold more items
 
-            inventoryID = inventoryItem["id"]
+            inventoryID = inventoryItem["inventoryID"]
 
             # See if there is a custom filed at the inventory level for the "Package Supplier"
-            if "customFields" in inventoryItem:
-                customFields = inventoryItem["customFields"]
 
-                # See if the custom project fields were populated for this inventory item
-                for customField in customFields:
+            packageSupplier = report_data_db.get_custom_field_value(inventoryID, "Package Supplier")
+            if packageSupplier is None:
+                packageSupplier = "N/A"
 
-                    # Is there the reqired custom field available?
-                    if customField["fieldLabel"] == "Package Supplier":
-                        if customField["value"] is not None and customField["value"] != "":
-                            supplier = customField["value"]
-            
 
             if inventoryType != "Component":
-                name =  inventoryItem["name"].split("(")[0] # Get rid of ( SPDX ID ) from name
+                name =  inventoryItem["inventoryItemName"].split("(")[0] # Get rid of ( SPDX ID ) from name
                 SPDXIDPackageName = name + "-" + str(inventoryID)  # Inventory ensure the value is unique
                 SPDXIDPackageName = re.sub(SPDXIDPackageNamePattern, "-", SPDXIDPackageName)          # Remove special characters
                 componentName = name
 
                 if supplier is None:
-                    supplier = "Organization: Various, People: Various" 
+                    supplier = "Organization: Various, People: Various"
 
             else:
                 componentName = inventoryItem["componentName"].strip()
@@ -156,41 +176,40 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
                 SPDXIDPackageName = componentName + "-" + versionName + "-" + str(inventoryID)  # Inventory ensure the value is unique
                 SPDXIDPackageName = re.sub(SPDXIDPackageNamePattern, "-", SPDXIDPackageName)          # Remove special characters
 
-                forge = inventoryItem["componentForgeName"]
+                forge = inventoryItem["forge"]
 
                 ##########################################
-                # Create supplier string from forge and component 
+                # Create supplier string from forge and component
                 if supplier is None:
                     supplier = create_supplier_string(forge, componentName)
 
-                # Manage the purl value - 2024R1 added purl in response
-                if reportData["releaseVersion"] > "2024R1":
-                    purlString = inventoryItem["purl"]
-                    if purlString == "N/A":
-                        purlString = ""
-                else:
-                    try:
-                        purlString = purl.get_purl_string(inventoryItem, baseURL, authToken)
-                    except:
-                        logger.warning("Unable to create purl string for inventory item %s." %SPDXIDPackageName)
-                        purlString = ""
+                # Attempt to generate a purl string for the component
+                try:
+                    purlString = purl.get_purl_string(
+                        inventoryItem,
+                        inventoryItem["componentVersionName"],
+                        inventoryItem["inventoryItemName"]
+                    )
+                except:
+                    logger.warning("Unable to create purl string for inventory item.")
+                    purlString = ""
 
                 if "@" in purlString:
                     perlRef = {}
                     perlRef["referenceCategory"] = "PACKAGE-MANAGER"
                     perlRef["referenceLocator"] = purlString
                     perlRef["referenceType"] = "purl"
-                    externalRefs.append(perlRef)    
+                    externalRefs.append(perlRef)
 
             # Common for Components and License Only items
             packageSPDXID = "SPDXRef-Pkg-" + SPDXIDPackageName
-            
+
             # Manage the homepage value
-            if inventoryItem["componentUrl"] not in ["", "N/A", "NA", None]:
+            if inventoryType == "Component" and inventoryItem["componentUrl"] not in ["", "N/A", "NA", None]:
                 homepage = inventoryItem["componentUrl"]
             else:
                 homepage = "NOASSERTION"
-    
+
             ##########################################
             # Manage Declared Licenses - These are the "possible" license based on data collection
             declaredLicenses, hasExtractedLicensingInfos = manage_package_declared_licenses(inventoryItem, hasExtractedLicensingInfos)
@@ -198,7 +217,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
             ##########################################
             # Manage Concluded license
             concludedLicense, hasExtractedLicensingInfos = manage_package_concluded_license(inventoryItem, hasExtractedLicensingInfos)
-    
+
             packageDetails = {}
             packageDetails["SPDXID"] = packageSPDXID
             packageDetails["name"] = componentName
@@ -210,26 +229,26 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
                 packageDetails["externalRefs"] = externalRefs
             packageDetails["homepage"] = homepage
             packageDetails["downloadLocation"] = "NOASSERTION"  # TODO - use a inventory custom field to store this?
-            packageDetails["copyrightText"] = (process_copyrights(inventoryItem["copyrights"]) if includeCopyrightsData else "NOASSERTION")
+            packageDetails["copyrightText"] = (process_copyrights(inventoryItem["copyright"]) if includeCopyrightsData else "NOASSERTION")
             packageDetails["licenseDeclared"] = declaredLicenses
             packageDetails["licenseConcluded"] = concludedLicense
             packageDetails["supplier"] = supplier
 
             # Manage file details related to this package
-            filePaths = inventoryItem["filePaths"]
-            
+            filePaths = report_data_db.get_inventory_item_file_paths(inventoryID, projectID)
+
             # Manange the relationship for this pacakge to the root item
             packageRelationship = {}
             packageRelationship["spdxElementId"] = packageSPDXID
             packageRelationship["relationshipType"] = "PACKAGE_OF"
             packageRelationship["relatedSpdxElement"] = rootSPDXID
-            
+
             if packageRelationship not in relationships:
                 relationships.append(packageRelationship)
 
 
             # Are there any files assocaited to this inventory item?
-            if len(filePaths) == 0 or not includeFileDetails: 
+            if len(filePaths) == 0 or not includeFileDetails:
                 packageDetails["filesAnalyzed"] = False
             else:
                 packageDetails["filesAnalyzed"] = True
@@ -239,26 +258,26 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
                 licenseInfoFromFiles = []
                 fileHashes = []
                 for filePath in filePaths:
-                    if filePath in filePathtoID["inInventory"]:
-                        uniqueFileID = filePathtoID["inInventory"][filePath]["uniqueFileID"]
-                        fileHashes.append(filePathtoID["inInventory"][filePath]["fileSHA1"])
-                    elif filePath in filePathtoID["notInInventory"]:
-                        uniqueFileID = filePathtoID["notInInventory"][filePath]["uniqueFileID"]
+                    if filePath["PATH_"] in filePathtoID["inInventory"]:
+                        uniqueFileID = filePathtoID["inInventory"][filePath["PATH_"]]["uniqueFileID"]
+                        fileHashes.append(filePathtoID["inInventory"][filePath["PATH_"]]["fileSHA1"])
+                    elif filePath["PATH_"] in filePathtoID["notInInventory"]:
+                        uniqueFileID = filePathtoID["notInInventory"][filePath["PATH_"]]["uniqueFileID"]
                         logger.critical("File path associated to inventory but not according to file details response!!")
-                        logger.critical("    File ID: %s   File Path: %s" %(uniqueFileID, filePath))
+                        logger.critical("    File ID: %s   File Path: %s" %(uniqueFileID, filePath["PATH_"]))
 
-                        fileHashes.append(filePathtoID["notInInventory"][filePath]["fileSHA1"])
+                        fileHashes.append(filePathtoID["notInInventory"][filePath["PATH_"]]["fileSHA1"])
                     else:
                         logger.critical("File path does not seem to be in or out of inventory!!")
-                        logger.critical("    File Path: %s" %(filePath))
+                        logger.critical("    File Path: %s" %(filePath["PATH_"]))
                         continue
-                    
+
                     fileDetail = projectFileDetails[uniqueFileID]
                     fileSPDXID = fileDetail["SPDXID"]
 
                     #packageFiles[packageSPDXID].append(fileDetail) # add for tag/value output
                     # See if the file has alrady been added for another package or not for json output
-                    if fileDetail not in files:   
+                    if fileDetail not in files:
                         files.append(fileDetail)  # add for json output
 
                     # Define the relationship of the file to the package
@@ -270,15 +289,15 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
 
                     # Surfaces the file level evidence to the assocaited package
                     licenseInfoFromFiles = licenseInfoFromFiles + fileDetail.get("licenseInfoInFiles", [])
-    
-                # Create a hash of the file hashes for PackageVerificationCode 
+
+                # Create a hash of the file hashes for PackageVerificationCode
                 try:
                     stringHash = ''.join(sorted(fileHashes))
                 except:
                     logger.error("Failure sorting file hashes for %s" %SPDXIDPackageName)
                     logger.debug(stringHash)
                     stringHash = ''.join(fileHashes)
-                
+
                 packageVerificationCodeValue = (hashlib.sha1(stringHash.encode('utf-8'))).hexdigest()
 
                 # Was there any file level information
@@ -286,19 +305,25 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
                     licenseInfoFromFiles = ["NOASSERTION"]
                 else:
                     licenseInfoFromFiles = sorted(list(dict.fromkeys(licenseInfoFromFiles)))
-                
+
                 packageDetails["licenseInfoFromFiles"] = licenseInfoFromFiles
                 packageDetails["packageVerificationCode"] = {}
                 packageDetails["packageVerificationCode"]["packageVerificationCodeValue"] = packageVerificationCodeValue
-            
+
             if packageDetails not in packages:
                 packages.append(packageDetails)
-            
+
             # Collect copyrights for project
             if includeCopyrightsData:
-                projectCopyrights = list(set(projectCopyrights) | set(inventoryItem["copyrights"]))
+                # Handle None values in copyright data
+                copyright_data = inventoryItem["copyright"]
+                if copyright_data is not None:
+                    # Ensure we have a list to work with
+                    if not isinstance(copyright_data, list):
+                        copyright_data = [copyright_data] if copyright_data else []
+                    projectCopyrights = list(set(projectCopyrights) | set(copyright_data))
 
-    
+
         # See if there are any files that are not contained in inventory
         if includeFileDetails:
             # Manage the items from this project that were not associated to inventory
@@ -350,7 +375,7 @@ def gather_data_for_report(baseURL, projectID, authToken, reportData):
 
     reportDetails["hasExtractedLicensingInfos"] = list(hasExtractedLicensingInfos.values())  # remove the keys since not needed
     reportDetails["packages"] = packages
-    
+
     if includeFileDetails:
         reportDetails["files"] = files
 
@@ -369,25 +394,31 @@ def manage_package_declared_licenses(inventoryItem, hasExtractedLicensingInfos):
     declaredLicenses = [] # There could be mulitple licenses so create a list
 
     try:
-        possibleLicenses = inventoryItem["possibleLicenses"]
+        possibleLicenses = report_data_db.get_component_possible_Licenses(inventoryItem["component_id"])
     except:
         possibleLicenses = []
         declaredLicenses.append("NOASSERTION")
 
     for license in possibleLicenses:
-        licenseName = license["licenseSPDXIdentifier"]
-        possibleLicenseSPDXIdentifier = license["licenseSPDXIdentifier"]
+
+        licenseName = license["licenseName"]
+        if license["spdxIdentifier"] is None and license["shortName"] != "":
+            possibleLicenseSPDXIdentifier = license["shortName"]
+        elif license["spdxIdentifier"] is not None:
+            possibleLicenseSPDXIdentifier = license["spdxIdentifier"]
+        else:
+            possibleLicenseSPDXIdentifier = license["licenseName"]
 
         if licenseName == "Public Domain":
             logger.info("        Added to NONE declaredLicenses since Public Domain.")
             declaredLicenses.append("NONE")
-        
+
         elif possibleLicenseSPDXIdentifier in SPDX_license_mappings.LICENSEMAPPINGS:
             logger.info("        \"%s\" maps to SPDX ID: \"%s\"" %(possibleLicenseSPDXIdentifier, SPDX_license_mappings.LICENSEMAPPINGS[possibleLicenseSPDXIdentifier]) )
-            declaredLicenses.append(SPDX_license_mappings.LICENSEMAPPINGS[license["licenseSPDXIdentifier"]])
+            declaredLicenses.append(SPDX_license_mappings.LICENSEMAPPINGS[possibleLicenseSPDXIdentifier])
 
         else:
-            # There was not a valid SPDX ID 
+            # There was not a valid SPDX ID
             logger.warning("        \"%s\" is not a valid SPDX identifier for Declared License. - Using LicenseRef." %(possibleLicenseSPDXIdentifier))
 
             possibleLicenseSPDXIdentifier = possibleLicenseSPDXIdentifier.split("(", 1)[0].rstrip()  # If there is a ( in string remove everything after and space
@@ -410,7 +441,7 @@ def manage_package_declared_licenses(inventoryItem, hasExtractedLicensingInfos):
                 if declaredLicenseComment not in hasExtractedLicensingInfos[licenseReference]["comment"]:
                     hasExtractedLicensingInfos[licenseReference]["comment"].append(declaredLicenseComment)
 
-    #  Clean up the declared licenses 
+    #  Clean up the declared licenses
     if len(declaredLicenses) == 0:
         declaredLicenses = "NOASSERTION"
     elif len(declaredLicenses) == 1:
@@ -427,8 +458,13 @@ def manage_package_declared_licenses(inventoryItem, hasExtractedLicensingInfos):
 #----------------------------------------------
 def manage_package_concluded_license(inventoryItem, hasExtractedLicensingInfos):
 
-    selectedLicenseSPDXIdentifier = inventoryItem["selectedLicenseSPDXIdentifier"]
     selectedLicenseName = inventoryItem["selectedLicenseName"]
+    if inventoryItem["selectedLicenseSPDXIdentifier"] is None and inventoryItem["shortName"] != "":
+        selectedLicenseSPDXIdentifier = inventoryItem["shortName"]
+    elif inventoryItem["selectedLicenseSPDXIdentifier"] is not None:
+        selectedLicenseSPDXIdentifier = inventoryItem["selectedLicenseSPDXIdentifier"]
+    else:
+        selectedLicenseSPDXIdentifier = inventoryItem["selectedLicenseName"]
 
     # Need to make sure that there is a valid SPDX license mapping
     if selectedLicenseName == "Public Domain":
@@ -448,12 +484,12 @@ def manage_package_concluded_license(inventoryItem, hasExtractedLicensingInfos):
     else:
         # There was not a valid SPDX license name returned
         logger.warning("        \"%s\" is not a valid SPDX identifier for Concluded License. - Using LicenseRef." %(selectedLicenseSPDXIdentifier))
-
-        selectedLicenseSPDXIdentifier = selectedLicenseSPDXIdentifier.split("(", 1)[0].rstrip()  # If there is a ( in string remove everything after and space
-        selectedLicenseSPDXIdentifier = re.sub('[^a-zA-Z0-9 \n\.]', '-', selectedLicenseSPDXIdentifier) # Replace spec chars with dash
-        selectedLicenseSPDXIdentifier = selectedLicenseSPDXIdentifier.replace(" ", "-") # Replace space with dash
+        if selectedLicenseSPDXIdentifier is not None:
+            selectedLicenseSPDXIdentifier = selectedLicenseSPDXIdentifier.split("(", 1)[0].rstrip()  # If there is a ( in string remove everything after and space
+            selectedLicenseSPDXIdentifier = re.sub('[^a-zA-Z0-9 \n\.]', '-', selectedLicenseSPDXIdentifier) # Replace spec chars with dash
+            selectedLicenseSPDXIdentifier = selectedLicenseSPDXIdentifier.replace(" ", "-") # Replace space with dash
         licenseReference = "LicenseRef-%s" %selectedLicenseSPDXIdentifier
-        concludedLicense = licenseReference 
+        concludedLicense = licenseReference
 
         concludedLicenseComment = "SCA Revenera - Concluded license details for this package"
 
@@ -499,35 +535,35 @@ def manage_unassociated_files(filesNotInInventory, filePathtoID, rootSPDXID, cre
         unassociatedFilesPackageName = None
 
     for fileDetails in filesNotInInventory:
- 
+
         fileSPDXID = fileDetails["SPDXID"]
         fileName = fileDetails["fileName"]
-        
+
         fileHashes.append(filePathtoID[fileName]["fileSHA1"])
 
         # Surfaces the file level evidence to the assocaited package
         licenseInfoFromFiles = licenseInfoFromFiles + fileDetails.get("licenseInfoInFiles", [])
-  
+
        # Define the relationship of the file to the package
         fileRelationship = {}
         fileRelationship["spdxElementId"] = packageSPDXID
         fileRelationship["relationshipType"] = "CONTAINS"
         fileRelationship["relatedSpdxElement"] = fileSPDXID
         relationships.append(fileRelationship)
-        
+
         # Collecting all unassociated files copyrights
         if includeCopyrightsData and fileDetails["copyrightText"] != "NONE":
             unassociatedFilesCopyrights.extend(fileDetails["copyrightText"] if isinstance(fileDetails["copyrightText"], list) else [fileDetails["copyrightText"]])
             projectCopyrights.extend(fileDetails["copyrightText"] if isinstance(fileDetails["copyrightText"], list) else [fileDetails["copyrightText"]])
 
-    # Create a hash of the file hashes for PackageVerificationCode 
+    # Create a hash of the file hashes for PackageVerificationCode
     try:
         stringHash = ''.join(sorted(fileHashes))
     except:
         logger.error("Failure sorting file hashes for %s" %unassociatedFilesPackageName)
         logger.debug(stringHash)
         stringHash = ''.join(fileHashes)
-    
+
     packageVerificationCodeValue = (hashlib.sha1(stringHash.encode('utf-8'))).hexdigest()
 
     # Was there any file level information
@@ -558,23 +594,33 @@ def create_supplier_string(forge, componentName):
         # Is there a way to determine Person vs Organization?
         supplier = "Organization: %s:%s" %(forge, componentName)
     elif forge in ["other"]:
-        supplier = "Organization: Undetermined" 
+        supplier = "Organization: Undetermined"
     else:
         if forge != "":
             supplier = "Organization: %s:%s" %(forge, componentName)
         else:
             # Have a default value just in case one can't be created
-            supplier = "Organization: Undetermined" 
-   
+            supplier = "Organization: Undetermined"
+
     return supplier
 
 #---------------------------------------------------------
 def process_copyrights(copyrights_list):
     logger = logging.getLogger(__name__)
-    
-    # Normalize encoding issues and remove non-ASCII characters
-    copyrights_list = [unicodedata.normalize('NFKD', x).encode('ASCII', 'ignore').decode('utf-8') for x in copyrights_list]
-    
+
+    # Handle None or empty values
+    if copyrights_list is None:
+        logger.info("No Inventory copyright evidence discovered (None)")
+        return "NONE"
+
+    # Ensure we have a list to work with
+    if not isinstance(copyrights_list, list):
+        copyrights_list = [copyrights_list] if copyrights_list else []
+
+    # Filter out None values and normalize encoding issues and remove non-ASCII characters
+    copyrights_list = [unicodedata.normalize('NFKD', str(x)).encode('ASCII', 'ignore').decode('utf-8')
+                      for x in copyrights_list if x is not None]
+
     if copyrights_list:
         logger.info("Inventory Copyright evidence discovered")
         return " | ".join(copyrights_list)

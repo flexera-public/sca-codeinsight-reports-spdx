@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Change top level relationship for project name package
 - Tested with pyspdxtools
 
+## [4.0.0] - 2025-07-17
+### Changed
+- Optimized SPDX report to run independently using CodeInsight Database using data directly from DB calls rather than Codeinsight REST API's
+- Refer Updated README.md file for using cammand line utitlity
+
 ## [3.3.0] - 2025-02-03
 ### Changed
 - Included Copyrights pipe seprated for project, Associated files & Unassociated files with inventories
