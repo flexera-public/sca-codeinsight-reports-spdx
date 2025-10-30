@@ -291,11 +291,12 @@ def gather_data_for_report(projectID, reportData):
                     licenseInfoFromFiles = licenseInfoFromFiles + fileDetail["licenseInfoInFiles"]
     
                 # Create a hash of the file hashes for PackageVerificationCode 
+                # Filter out None values from fileHashes before processing
+                fileHashes = [hash_val for hash_val in fileHashes if hash_val is not None]
                 try:
                     stringHash = ''.join(sorted(fileHashes))
                 except:
                     logger.error("Failure sorting file hashes for %s" %SPDXIDPackageName)
-                    logger.debug(stringHash)
                     stringHash = ''.join(fileHashes)
                 
                 packageVerificationCodeValue = (hashlib.sha1(stringHash.encode('utf-8'))).hexdigest()
@@ -557,11 +558,12 @@ def manage_unassociated_files(filesNotInInventory, filePathtoID, rootSPDXID, cre
             projectCopyrights.extend(fileDetails["copyrightText"] if isinstance(fileDetails["copyrightText"], list) else [fileDetails["copyrightText"]])
 
     # Create a hash of the file hashes for PackageVerificationCode 
+    # Filter out None values from fileHashes before processing
+    fileHashes = [hash_val for hash_val in fileHashes if hash_val is not None]
     try:
         stringHash = ''.join(sorted(fileHashes))
     except:
         logger.error("Failure sorting file hashes for %s" %unassociatedFilesPackageName)
-        logger.debug(stringHash)
         stringHash = ''.join(fileHashes)
     
     packageVerificationCodeValue = (hashlib.sha1(stringHash.encode('utf-8'))).hexdigest()
