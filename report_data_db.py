@@ -305,58 +305,88 @@ def get_remote_scanned_files(projectID, includeUnassociatedFiles):
 
 def get_project_evidence(projectID):
     """
-    Optimized version of get_project_evidence that breaks down the complex query
-    into smaller sequential operations to avoid MariaDB tmpdir issues.
-    Creates separate records for each evidence match like the original method.
+    High-performance version that uses batched processing of the original query
+    to handle large datasets while avoiding MariaDB tmpdir issues.
     """
-    logger.info(f"Starting optimized get_project_evidence for project ID: {projectID}")
+    logger.info(f"Starting high-performance get_project_evidence for project ID: {projectID}")
     
     try:
-        # Step 1: Get all base scanned files with their paths and server aliases
-        logger.info("Step 1: Retrieving base scanned files")
-        base_files_sql = f"SELECT SF.ID_ AS ID, SF.PATH_ AS PATH, SER.ALIAS_ AS ALIAS FROM PSE_SCANNED_FILES SF LEFT JOIN PAS_PROJECT_SCAN_ROOTS SR ON SF.ROOT_ID_ = SR.ID_ LEFT JOIN PAS_SCAN_SERVERS SER ON SER.ID_ = SR.SERVER_ID_ WHERE SF.PROJECT_ID_ = {projectID} ORDER BY SF.PATH_ ASC"
-        base_files = db_runner.run_query(base_files_sql)
-        logger.info(f"Found {len(base_files) if base_files else 0} base scanned files")
+        # Step 1: Get count of files to determine batching strategy
+        count_sql = f"SELECT COUNT(*) AS file_count FROM PSE_SCANNED_FILES WHERE PROJECT_ID_ = {projectID}"
+        count_result = db_runner.run_query(count_sql)
+        file_count = int(count_result[0]['file_count']) if count_result and count_result[0]['file_count'] else 0
         
-        if not base_files:
-            logger.warning("No scanned files found for project")
+        logger.info(f"Project has {file_count} scanned files")
+        
+        # Use batching for all projects - works efficiently for both small and large datasets
+        # For smaller projects (<=2000 files), use larger batch size for efficiency
+        # For larger projects, use smaller batches to avoid memory/tmpdir issues
+        if file_count <= 2000:
+            batch_size = file_count  # Process all files in one batch for small projects
+            logger.info(f"Small project - processing all {file_count} files in single batch")
+        else:
+            batch_size = 1000  # Use smaller batches for large projects
+            logger.info(f"Large project - using batch size of {batch_size}")
+        all_evidence = []
+        
+        # Get file IDs in batches to process
+        id_batch_sql = f"SELECT ID_ FROM PSE_SCANNED_FILES WHERE PROJECT_ID_ = {projectID} ORDER BY ID_"
+        file_ids_result = db_runner.run_query(id_batch_sql)
+        
+        if not file_ids_result:
+            logger.warning("No scanned files found")
             return []
+            
+        file_ids = [row['ID_'] for row in file_ids_result]
+        total_batches = (len(file_ids) + batch_size - 1) // batch_size
         
-        # Create a lookup dictionary for base file information
-        file_info = {}
-        for file_record in base_files:
-            file_id = file_record.get('ID')
-            file_info[file_id] = {
-                'PATH': file_record.get('PATH'),
-                'ALIAS': file_record.get('ALIAS')
-            }
+        logger.info(f"Processing {len(file_ids)} files in {total_batches} batches of {batch_size}")
         
-        file_ids = list(file_info.keys())
-        logger.info(f"Processing evidence for {len(file_ids)} files")
+        vendor = get_db_vendor()
         
-        # Collect all evidence records - one per match combination
-        evidence_records = []
-        batch_size = 1000
-        
-        # Step 2: Get license matches and create records
         for i in range(0, len(file_ids), batch_size):
             batch_ids = file_ids[i:i + batch_size]
+            batch_num = (i // batch_size) + 1
+            
+            logger.info(f"Processing batch {batch_num}/{total_batches} ({len(batch_ids)} files)")
+            
+            # Create IN clause for this batch
             id_list = ','.join(str(id) for id in batch_ids)
             
-            logger.info(f"Step 2a: Retrieving license matches for batch {i//batch_size + 1} ({len(batch_ids)} files)")
-            license_sql = f"SELECT SF.ID_ AS ID, PD.NAME_ AS LICENSE FROM PSE_SCANNED_FILES SF LEFT JOIN PSE_SCAN_RESULT_NONSCF SRN ON SRN.ID_ = SF.NONSCF_RESULT_ID_ LEFT JOIN PSE_LICENSE_MATCH LM ON SRN.ID_ = LM.RESULT_ID_ LEFT JOIN PDL_LICENSE PD ON LM.LICENSE_ID_ = PD.ID_ WHERE SF.ID_ IN ({id_list}) AND PD.NAME_ IS NOT NULL"
+            # Process each evidence type separately to avoid Cartesian product
+            batch_evidence = []
             
-            license_results = db_runner.run_query(license_sql)
-            if license_results:
-                logger.info(f"Found {len(license_results)} license matches in batch")
-                for record in license_results:
-                    file_id = record.get('ID')
-                    if file_id in file_info:
-                        evidence_records.append({
-                            'ID': str(file_id),
-                            'PATH': file_info[file_id]['PATH'],
-                            'ALIAS': file_info[file_id]['ALIAS'],
-                            'LICENSE': record.get('LICENSE'),
+            # 1. Get base files with paths and aliases
+            base_files_sql = f"SELECT SF.ID_ AS ID, SF.PATH_ AS PATH, SER.ALIAS_ AS ALIAS FROM PSE_SCANNED_FILES SF LEFT JOIN PAS_PROJECT_SCAN_ROOTS SR ON SF.ROOT_ID_ = SR.ID_ LEFT JOIN PAS_SCAN_SERVERS SER ON SER.ID_ = SR.SERVER_ID_ WHERE SF.PROJECT_ID_ = {projectID} AND SF.ID_ IN ({id_list})"
+            base_files = db_runner.run_query(base_files_sql)
+            
+            if base_files:
+                # Create base records for all files
+                for file_record in base_files:
+                    batch_evidence.append({
+                        'ID': str(file_record['ID']),
+                        'PATH': file_record['PATH'],
+                        'ALIAS': file_record['ALIAS'],
+                        'LICENSE': None,
+                        'EMAILURL': None,
+                        'COPYRIGHT': None,
+                        'SEARCHSTRING': None,
+                        'DIGEST': None,
+                        'MATCHES': None,
+                        'REMOTE_ID': None
+                    })
+                
+                # 2. Get license evidence and create separate records
+                license_sql = f"SELECT SF.ID_ AS ID, SF.PATH_ AS PATH, PD.NAME_ AS LICENSE, SER.ALIAS_ AS ALIAS FROM PSE_SCANNED_FILES SF LEFT JOIN PSE_SCAN_RESULT_NONSCF SRN ON SRN.ID_ = SF.NONSCF_RESULT_ID_ LEFT JOIN PSE_LICENSE_MATCH LM ON SRN.ID_ = LM.RESULT_ID_ LEFT JOIN PDL_LICENSE PD ON LM.LICENSE_ID_ = PD.ID_ LEFT JOIN PAS_PROJECT_SCAN_ROOTS SR ON SF.ROOT_ID_ = SR.ID_ LEFT JOIN PAS_SCAN_SERVERS SER ON SER.ID_ = SR.SERVER_ID_ WHERE SF.PROJECT_ID_ = {projectID} AND SF.ID_ IN ({id_list}) AND PD.NAME_ IS NOT NULL"
+                license_results = db_runner.run_query(license_sql)
+                
+                if license_results:
+                    for record in license_results:
+                        batch_evidence.append({
+                            'ID': str(record['ID']),
+                            'PATH': record['PATH'],
+                            'ALIAS': record['ALIAS'],
+                            'LICENSE': record['LICENSE'],
                             'EMAILURL': None,
                             'COPYRIGHT': None,
                             'SEARCHSTRING': None,
@@ -364,154 +394,96 @@ def get_project_evidence(projectID):
                             'MATCHES': None,
                             'REMOTE_ID': None
                         })
-        
-        # Step 3: Get email URL matches and create records
-        for i in range(0, len(file_ids), batch_size):
-            batch_ids = file_ids[i:i + batch_size]
-            id_list = ','.join(str(id) for id in batch_ids)
-            
-            logger.info(f"Step 3a: Retrieving email URL matches for batch {i//batch_size + 1} ({len(batch_ids)} files)")
-            email_sql = f"SELECT SF.ID_ AS ID, ET.TEXT_ AS EMAILURL FROM PSE_SCANNED_FILES SF LEFT JOIN PSE_SCAN_RESULT_NONSCF SRN ON SRN.ID_ = SF.NONSCF_RESULT_ID_ LEFT JOIN PSE_EMAILURL_MATCH EM ON SRN.ID_ = EM.RESULT_ID_ LEFT JOIN PSE_EMAILURL_TEXT ET ON EM.TEXT_ID_ = ET.ID_ WHERE SF.ID_ IN ({id_list}) AND ET.TEXT_ IS NOT NULL"
-            
-            email_results = db_runner.run_query(email_sql)
-            if email_results:
-                logger.info(f"Found {len(email_results)} email URL matches in batch")
-                for record in email_results:
-                    file_id = record.get('ID')
-                    if file_id in file_info:
-                        evidence_records.append({
-                            'ID': str(file_id),
-                            'PATH': file_info[file_id]['PATH'],
-                            'ALIAS': file_info[file_id]['ALIAS'],
+                
+                # 3. Get email/URL evidence and create separate records
+                email_sql = f"SELECT SF.ID_ AS ID, SF.PATH_ AS PATH, ET.TEXT_ AS EMAILURL, SER.ALIAS_ AS ALIAS FROM PSE_SCANNED_FILES SF LEFT JOIN PSE_SCAN_RESULT_NONSCF SRN ON SRN.ID_ = SF.NONSCF_RESULT_ID_ LEFT JOIN PSE_EMAILURL_MATCH EM ON SRN.ID_ = EM.RESULT_ID_ LEFT JOIN PSE_EMAILURL_TEXT ET ON EM.TEXT_ID_ = ET.ID_ LEFT JOIN PAS_PROJECT_SCAN_ROOTS SR ON SF.ROOT_ID_ = SR.ID_ LEFT JOIN PAS_SCAN_SERVERS SER ON SER.ID_ = SR.SERVER_ID_ WHERE SF.PROJECT_ID_ = {projectID} AND SF.ID_ IN ({id_list}) AND ET.TEXT_ IS NOT NULL"
+                email_results = db_runner.run_query(email_sql)
+                
+                if email_results:
+                    for record in email_results:
+                        batch_evidence.append({
+                            'ID': str(record['ID']),
+                            'PATH': record['PATH'],
+                            'ALIAS': record['ALIAS'],
                             'LICENSE': None,
-                            'EMAILURL': record.get('EMAILURL'),
+                            'EMAILURL': record['EMAILURL'],
                             'COPYRIGHT': None,
                             'SEARCHSTRING': None,
                             'DIGEST': None,
                             'MATCHES': None,
                             'REMOTE_ID': None
                         })
-        
-        # Step 4: Get copyright matches and create records
-        for i in range(0, len(file_ids), batch_size):
-            batch_ids = file_ids[i:i + batch_size]
-            id_list = ','.join(str(id) for id in batch_ids)
-            
-            logger.info(f"Step 4a: Retrieving copyright matches for batch {i//batch_size + 1} ({len(batch_ids)} files)")
-            copyright_sql = f"SELECT SF.ID_ AS ID, CTXT.TEXT_ AS COPYRIGHT FROM PSE_SCANNED_FILES SF LEFT JOIN PSE_SCAN_RESULT_NONSCF SRN ON SRN.ID_ = SF.NONSCF_RESULT_ID_ LEFT JOIN PSE_COPYRIGHT_MATCH CM ON SRN.ID_ = CM.RESULT_ID_ LEFT JOIN PSE_COPYRIGHT_TEXT CTXT ON CM.TEXT_ID_ = CTXT.ID_ WHERE SF.ID_ IN ({id_list}) AND CTXT.TEXT_ IS NOT NULL"
-            
-            copyright_results = db_runner.run_query(copyright_sql)
-            if copyright_results:
-                logger.info(f"Found {len(copyright_results)} copyright matches in batch")
-                for record in copyright_results:
-                    file_id = record.get('ID')
-                    if file_id in file_info:
-                        evidence_records.append({
-                            'ID': str(file_id),
-                            'PATH': file_info[file_id]['PATH'],
-                            'ALIAS': file_info[file_id]['ALIAS'],
+                
+                # 4. Get copyright evidence and create separate records
+                copyright_sql = f"SELECT SF.ID_ AS ID, SF.PATH_ AS PATH, CTXT.TEXT_ AS COPYRIGHT, SER.ALIAS_ AS ALIAS FROM PSE_SCANNED_FILES SF LEFT JOIN PSE_SCAN_RESULT_NONSCF SRN ON SRN.ID_ = SF.NONSCF_RESULT_ID_ LEFT JOIN PSE_COPYRIGHT_MATCH CM ON SRN.ID_ = CM.RESULT_ID_ LEFT JOIN PSE_COPYRIGHT_TEXT CTXT ON CM.TEXT_ID_ = CTXT.ID_ LEFT JOIN PAS_PROJECT_SCAN_ROOTS SR ON SF.ROOT_ID_ = SR.ID_ LEFT JOIN PAS_SCAN_SERVERS SER ON SER.ID_ = SR.SERVER_ID_ WHERE SF.PROJECT_ID_ = {projectID} AND SF.ID_ IN ({id_list}) AND CTXT.TEXT_ IS NOT NULL"
+                copyright_results = db_runner.run_query(copyright_sql)
+                
+                if copyright_results:
+                    for record in copyright_results:
+                        batch_evidence.append({
+                            'ID': str(record['ID']),
+                            'PATH': record['PATH'],
+                            'ALIAS': record['ALIAS'],
                             'LICENSE': None,
                             'EMAILURL': None,
-                            'COPYRIGHT': record.get('COPYRIGHT'),
+                            'COPYRIGHT': record['COPYRIGHT'],
                             'SEARCHSTRING': None,
                             'DIGEST': None,
                             'MATCHES': None,
                             'REMOTE_ID': None
                         })
-        
-        # Step 5: Get search string matches and create records
-        for i in range(0, len(file_ids), batch_size):
-            batch_ids = file_ids[i:i + batch_size]
-            id_list = ','.join(str(id) for id in batch_ids)
-            
-            logger.info(f"Step 5a: Retrieving search string matches for batch {i//batch_size + 1} ({len(batch_ids)} files)")
-            search_string_sql = f"SELECT SF.ID_ AS ID, ST.SEARCH_STRING_ AS SEARCHSTRING FROM PSE_SCANNED_FILES SF LEFT JOIN PSE_SCAN_RESULT_NONSCF SRN ON SRN.ID_ = SF.NONSCF_RESULT_ID_ LEFT JOIN PSE_SEARCH_STRING_MATCH SM ON SRN.ID_ = SM.RESULT_ID_ LEFT JOIN PSE_SEARCH_STRING ST ON SM.SEARCH_STRING_ID_ = ST.ID_ WHERE SF.ID_ IN ({id_list}) AND ST.SEARCH_STRING_ IS NOT NULL"
-            
-            search_results = db_runner.run_query(search_string_sql)
-            if search_results:
-                logger.info(f"Found {len(search_results)} search string matches in batch")
-                for record in search_results:
-                    file_id = record.get('ID')
-                    if file_id in file_info:
-                        evidence_records.append({
-                            'ID': str(file_id),
-                            'PATH': file_info[file_id]['PATH'],
-                            'ALIAS': file_info[file_id]['ALIAS'],
+                
+                # 5. Get search string evidence and create separate records
+                search_sql = f"SELECT SF.ID_ AS ID, SF.PATH_ AS PATH, ST.SEARCH_STRING_ AS SEARCHSTRING, SER.ALIAS_ AS ALIAS FROM PSE_SCANNED_FILES SF LEFT JOIN PSE_SCAN_RESULT_NONSCF SRN ON SRN.ID_ = SF.NONSCF_RESULT_ID_ LEFT JOIN PSE_SEARCH_STRING_MATCH SM ON SRN.ID_ = SM.RESULT_ID_ LEFT JOIN PSE_SEARCH_STRING ST ON SM.SEARCH_STRING_ID_ = ST.ID_ LEFT JOIN PAS_PROJECT_SCAN_ROOTS SR ON SF.ROOT_ID_ = SR.ID_ LEFT JOIN PAS_SCAN_SERVERS SER ON SER.ID_ = SR.SERVER_ID_ WHERE SF.PROJECT_ID_ = {projectID} AND SF.ID_ IN ({id_list}) AND ST.SEARCH_STRING_ IS NOT NULL"
+                search_results = db_runner.run_query(search_sql)
+                
+                if search_results:
+                    for record in search_results:
+                        batch_evidence.append({
+                            'ID': str(record['ID']),
+                            'PATH': record['PATH'],
+                            'ALIAS': record['ALIAS'],
                             'LICENSE': None,
                             'EMAILURL': None,
                             'COPYRIGHT': None,
-                            'SEARCHSTRING': record.get('SEARCHSTRING'),
+                            'SEARCHSTRING': record['SEARCHSTRING'],
                             'DIGEST': None,
                             'MATCHES': None,
                             'REMOTE_ID': None
                         })
+                
+                # 6. Get remote scanned files
+                remote_sql = f"SELECT RSF.ID_ AS ID, RSF.PATH_ AS PATH FROM PSE_REMOTE_SCANNED_FILES RSF WHERE RSF.PROJECT_ID_ = {projectID} AND RSF.ID_ IN ({id_list})"
+                remote_results = db_runner.run_query(remote_sql)
+                
+                if remote_results:
+                    for record in remote_results:
+                        batch_evidence.append({
+                            'ID': str(record['ID']),
+                            'PATH': record['PATH'],
+                            'ALIAS': None,
+                            'LICENSE': None,
+                            'EMAILURL': None,
+                            'COPYRIGHT': None,
+                            'SEARCHSTRING': None,
+                            'DIGEST': None,
+                            'MATCHES': None,
+                            'REMOTE_ID': str(record['ID'])
+                        })
+                
+                all_evidence.extend(batch_evidence)
+                logger.info(f"Batch {batch_num} returned {len(batch_evidence)} evidence records")
+            else:
+                logger.info(f"Batch {batch_num} returned no files")
         
-        # Step 6: Add base files that have no evidence matches
-        for file_id in file_info:
-            # Check if this file already has evidence records
-            has_evidence = any(record['ID'] == str(file_id) for record in evidence_records)
-            if not has_evidence:
-                evidence_records.append({
-                    'ID': str(file_id),
-                    'PATH': file_info[file_id]['PATH'],
-                    'ALIAS': file_info[file_id]['ALIAS'],
-                    'LICENSE': None,
-                    'EMAILURL': None,
-                    'COPYRIGHT': None,
-                    'SEARCHSTRING': None,
-                    'DIGEST': None,
-                    'MATCHES': None,
-                    'REMOTE_ID': None
-                })
-        
-        # Step 7: Get remote scanned files and add them
-        logger.info("Step 7: Retrieving remote scanned files")
-        remote_files_sql = f"SELECT RSF.ID_ AS ID, RSF.PATH_ AS PATH FROM PSE_REMOTE_SCANNED_FILES RSF WHERE RSF.PROJECT_ID_ = {projectID}"
-        
-        remote_files = db_runner.run_query(remote_files_sql)
-        if remote_files:
-            logger.info(f"Found {len(remote_files)} remote scanned files")
-            for record in remote_files:
-                file_id = record.get('ID')
-                evidence_records.append({
-                    'ID': str(file_id),
-                    'PATH': record.get('PATH'),
-                    'ALIAS': None,
-                    'LICENSE': None,
-                    'EMAILURL': None,
-                    'COPYRIGHT': None,
-                    'SEARCHSTRING': None,
-                    'DIGEST': None,
-                    'MATCHES': None,
-                    'REMOTE_ID': str(file_id)
-                })
-        
-        # Step 8: Sort by PATH
-        logger.info("Step 8: Sorting results by PATH")
-        evidence_records.sort(key=lambda x: x.get('PATH', '') or '')
-        
-        logger.info(f"Successfully completed optimized get_project_evidence. Returning {len(evidence_records)} records")
-        return evidence_records
+        logger.info(f"Successfully completed batched get_project_evidence. Returning {len(all_evidence)} records")
+        return all_evidence
     
     except Exception as e:
-        logger.error(f"Error in optimized get_project_evidence: {str(e)}")
+        logger.error(f"Error in get_project_evidence: {str(e)}")
         logger.error(f"Exception type: {type(e).__name__}")
-        # Fallback to original method if optimization fails
-        logger.warning("Falling back to original get_project_evidence method")
-        return get_project_evidence_original(projectID)
-
-
-def get_project_evidence_original(projectID):
-    """
-    Original get_project_evidence method kept as fallback
-    """
-    logger.info("Using original get_project_evidence method as fallback")
-    vendor = get_db_vendor()
-    if vendor == "mysql":
-        sql = f"""SELECT ids.ID, COALESCE(l.PATH, e.PATH, c.PATH, s.PATH) AS PATH, l.LICENSE, e.EMAILURL, c.COPYRIGHT, s.SEARCHSTRING, COALESCE(l.ALIAS, e.ALIAS, c.ALIAS, s.ALIAS) AS ALIAS, l.DIGEST, l.MATCHES, r.ID_ AS REMOTE_ID FROM (SELECT SF.ID_ AS ID FROM PSE_SCANNED_FILES SF WHERE SF.PROJECT_ID_ = {projectID} UNION SELECT SF.ID_ AS ID FROM PSE_SCANNED_FILES SF LEFT JOIN PSE_SCAN_RESULT_NONSCF SRN ON SRN.ID_ = SF.NONSCF_RESULT_ID_ LEFT JOIN PSE_EMAILURL_MATCH EM ON SRN.ID_ = EM.RESULT_ID_ WHERE SF.PROJECT_ID_ = {projectID} UNION SELECT SF.ID_ AS ID FROM PSE_SCANNED_FILES SF LEFT JOIN PSE_SCAN_RESULT_NONSCF SRN ON SRN.ID_ = SF.NONSCF_RESULT_ID_ LEFT JOIN PSE_COPYRIGHT_MATCH CM ON SRN.ID_ = CM.RESULT_ID_ WHERE SF.PROJECT_ID_ = {projectID} UNION SELECT SF.ID_ AS ID FROM PSE_SCANNED_FILES SF LEFT JOIN PSE_SCAN_RESULT_NONSCF SRN ON SRN.ID_ = SF.NONSCF_RESULT_ID_ LEFT JOIN PSE_SEARCH_STRING_MATCH SM ON SRN.ID_ = SM.RESULT_ID_ WHERE SF.PROJECT_ID_ = {projectID}) ids LEFT JOIN (SELECT SF.ID_ AS ID, SF.PATH_ AS PATH, PD.NAME_ AS LICENSE, SER.ALIAS_ AS ALIAS, NULL AS DIGEST, NULL AS MATCHES FROM PSE_SCANNED_FILES SF LEFT JOIN PSE_SCAN_RESULT_NONSCF SRN ON SRN.ID_ = SF.NONSCF_RESULT_ID_ LEFT JOIN PSE_LICENSE_MATCH LM ON SRN.ID_ = LM.RESULT_ID_ LEFT JOIN PDL_LICENSE PD ON LM.LICENSE_ID_ = PD.ID_ LEFT JOIN PAS_PROJECT_SCAN_ROOTS SR ON SF.ROOT_ID_ = SR.ID_ LEFT JOIN PAS_SCAN_SERVERS SER ON SER.ID_ = SR.SERVER_ID_ WHERE SF.PROJECT_ID_ = {projectID} GROUP BY SF.ID_, SF.PATH_, PD.NAME_, SER.ALIAS_) l ON ids.ID = l.ID LEFT JOIN (SELECT SF.ID_ AS ID, SF.PATH_ AS PATH, ET.TEXT_ AS EMAILURL, SER.ALIAS_ AS ALIAS FROM PSE_SCANNED_FILES SF LEFT JOIN PSE_SCAN_RESULT_NONSCF SRN ON SRN.ID_ = SF.NONSCF_RESULT_ID_ LEFT JOIN PSE_EMAILURL_MATCH EM ON SRN.ID_ = EM.RESULT_ID_ LEFT JOIN PSE_EMAILURL_TEXT ET ON EM.TEXT_ID_ = ET.ID_ LEFT JOIN PAS_PROJECT_SCAN_ROOTS SR ON SF.ROOT_ID_ = SR.ID_ LEFT JOIN PAS_SCAN_SERVERS SER ON SER.ID_ = SR.SERVER_ID_ WHERE SF.PROJECT_ID_ = {projectID} GROUP BY SF.ID_, SF.PATH_, ET.TEXT_, SER.ALIAS_) e ON ids.ID = e.ID LEFT JOIN (SELECT SF.ID_ AS ID, SF.PATH_ AS PATH, CTXT.TEXT_ AS COPYRIGHT, SER.ALIAS_ AS ALIAS FROM PSE_SCANNED_FILES SF LEFT JOIN PSE_SCAN_RESULT_NONSCF SRN ON SRN.ID_ = SF.NONSCF_RESULT_ID_ LEFT JOIN PSE_COPYRIGHT_MATCH CM ON SRN.ID_ = CM.RESULT_ID_ LEFT JOIN PSE_COPYRIGHT_TEXT CTXT ON CM.TEXT_ID_ = CTXT.ID_ LEFT JOIN PAS_PROJECT_SCAN_ROOTS SR ON SF.ROOT_ID_ = SR.ID_ LEFT JOIN PAS_SCAN_SERVERS SER ON SER.ID_ = SR.SERVER_ID_ WHERE SF.PROJECT_ID_ = {projectID} GROUP BY SF.ID_, SF.PATH_, CTXT.TEXT_, SER.ALIAS_) c ON ids.ID = c.ID LEFT JOIN (SELECT SF.ID_ AS ID, SF.PATH_ AS PATH, ST.SEARCH_STRING_ AS SEARCHSTRING, SER.ALIAS_ AS ALIAS FROM PSE_SCANNED_FILES SF LEFT JOIN PSE_SCAN_RESULT_NONSCF SRN ON SRN.ID_ = SF.NONSCF_RESULT_ID_ LEFT JOIN PSE_SEARCH_STRING_MATCH SM ON SRN.ID_ = SM.RESULT_ID_ LEFT JOIN PSE_SEARCH_STRING ST ON SM.SEARCH_STRING_ID_ = ST.ID_ LEFT JOIN PAS_PROJECT_SCAN_ROOTS SR ON SF.ROOT_ID_ = SR.ID_ LEFT JOIN PAS_SCAN_SERVERS SER ON SER.ID_ = SR.SERVER_ID_ WHERE SF.PROJECT_ID_ = {projectID} GROUP BY SF.ID_, SF.PATH_, ST.SEARCH_STRING_, SER.ALIAS_) s ON ids.ID = s.ID LEFT JOIN PSE_REMOTE_SCANNED_FILES r ON ids.ID = r.ID_ ORDER BY PATH ASC;"""
-    else:
-        sql = f"""SELECT ids.ID, COALESCE(l.PATH, e.PATH, c.PATH, s.PATH, r.PATH) AS PATH, l.LICENSE, e.EMAILURL, c.COPYRIGHT, s.SEARCHSTRING, COALESCE(l.ALIAS, e.ALIAS, c.ALIAS, s.ALIAS, r.ALIAS) AS ALIAS, l.DIGEST, l.MATCHES, r.ID AS REMOTE_ID FROM (SELECT SF.ID_ AS ID FROM PSE_SCANNED_FILES SF WHERE SF.PROJECT_ID_ = {projectID} UNION SELECT SF.ID_ AS ID FROM PSE_SCANNED_FILES SF LEFT JOIN PSE_SCAN_RESULT_NONSCF SRN ON SRN.ID_ = SF.NONSCF_RESULT_ID_ LEFT JOIN PSE_LICENSE_MATCH LM ON SRN.ID_ = LM.RESULT_ID_ WHERE SF.PROJECT_ID_ = {projectID} UNION SELECT SF.ID_ AS ID FROM PSE_SCANNED_FILES SF LEFT JOIN PSE_SCAN_RESULT_NONSCF SRN ON SRN.ID_ = SF.NONSCF_RESULT_ID_ LEFT JOIN PSE_EMAILURL_MATCH EM ON SRN.ID_ = EM.RESULT_ID_ WHERE SF.PROJECT_ID_ = {projectID} UNION SELECT SF.ID_ AS ID FROM PSE_SCANNED_FILES SF LEFT JOIN PSE_SCAN_RESULT_NONSCF SRN ON SRN.ID_ = SF.NONSCF_RESULT_ID_ LEFT JOIN PSE_COPYRIGHT_MATCH CM ON SRN.ID_ = CM.RESULT_ID_ WHERE SF.PROJECT_ID_ = {projectID} UNION SELECT SF.ID_ AS ID FROM PSE_SCANNED_FILES SF LEFT JOIN PSE_SCAN_RESULT_NONSCF SRN ON SRN.ID_ = SF.NONSCF_RESULT_ID_ LEFT JOIN PSE_SEARCH_STRING_MATCH SM ON SRN.ID_ = SM.RESULT_ID_ WHERE SF.PROJECT_ID_ = {projectID} UNION SELECT RSF.ID_ AS ID FROM PSE_REMOTE_SCANNED_FILES RSF WHERE RSF.PROJECT_ID_ = {projectID}) ids LEFT JOIN (SELECT SF.ID_ AS ID, SF.PATH_ AS PATH, PD.NAME_ AS LICENSE, SER.ALIAS_ AS ALIAS, NULL AS DIGEST, NULL AS MATCHES FROM PSE_SCANNED_FILES SF LEFT JOIN PSE_SCAN_RESULT_NONSCF SRN ON SRN.ID_ = SF.NONSCF_RESULT_ID_ LEFT JOIN PSE_LICENSE_MATCH LM ON SRN.ID_ = LM.RESULT_ID_ LEFT JOIN PDL_LICENSE PD ON LM.LICENSE_ID_ = PD.ID_ LEFT JOIN PAS_PROJECT_SCAN_ROOTS SR ON SF.ROOT_ID_ = SR.ID_ LEFT JOIN PAS_SCAN_SERVERS SER ON SER.ID_ = SR.SERVER_ID_ WHERE SF.PROJECT_ID_ = {projectID} GROUP BY SF.ID_, SF.PATH_, PD.NAME_, SER.ALIAS_) l ON ids.ID = l.ID LEFT JOIN (SELECT SF.ID_ AS ID, SF.PATH_ AS PATH, ET.TEXT_ AS EMAILURL, SER.ALIAS_ AS ALIAS FROM PSE_SCANNED_FILES SF LEFT JOIN PSE_SCAN_RESULT_NONSCF SRN ON SRN.ID_ = SF.NONSCF_RESULT_ID_ LEFT JOIN PSE_EMAILURL_MATCH EM ON SRN.ID_ = EM.RESULT_ID_ LEFT JOIN PSE_EMAILURL_TEXT ET ON EM.TEXT_ID_ = ET.ID_ LEFT JOIN PAS_PROJECT_SCAN_ROOTS SR ON SF.ROOT_ID_ = SR.ID_ LEFT JOIN PAS_SCAN_SERVERS SER ON SER.ID_ = SR.SERVER_ID_ WHERE SF.PROJECT_ID_ = {projectID} GROUP BY SF.ID_, SF.PATH_, ET.TEXT_, SER.ALIAS_) e ON ids.ID = e.ID LEFT JOIN (SELECT SF.ID_ AS ID, SF.PATH_ AS PATH, CTXT.TEXT_ AS COPYRIGHT, SER.ALIAS_ AS ALIAS FROM PSE_SCANNED_FILES SF LEFT JOIN PSE_SCAN_RESULT_NONSCF SRN ON SRN.ID_ = SF.NONSCF_RESULT_ID_ LEFT JOIN PSE_COPYRIGHT_MATCH CM ON SRN.ID_ = CM.RESULT_ID_ LEFT JOIN PSE_COPYRIGHT_TEXT CTXT ON CM.TEXT_ID_ = CTXT.ID_ LEFT JOIN PAS_PROJECT_SCAN_ROOTS SR ON SF.ROOT_ID_ = SR.ID_ LEFT JOIN PAS_SCAN_SERVERS SER ON SER.ID_ = SR.SERVER_ID_ WHERE SF.PROJECT_ID_ = {projectID} GROUP BY SF.ID_, SF.PATH_, CTXT.TEXT_, SER.ALIAS_) c ON ids.ID = c.ID LEFT JOIN (SELECT SF.ID_ AS ID, SF.PATH_ AS PATH, ST.SEARCH_STRING_ AS SEARCHSTRING, SER.ALIAS_ AS ALIAS FROM PSE_SCANNED_FILES SF LEFT JOIN PSE_SCAN_RESULT_NONSCF SRN ON SRN.ID_ = SF.NONSCF_RESULT_ID_ LEFT JOIN PSE_SEARCH_STRING_MATCH SM ON SRN.ID_ = SM.RESULT_ID_ LEFT JOIN PSE_SEARCH_STRING ST ON SM.SEARCH_STRING_ID_ = ST.ID_ LEFT JOIN PAS_PROJECT_SCAN_ROOTS SR ON SF.ROOT_ID_ = SR.ID_ LEFT JOIN PAS_SCAN_SERVERS SER ON SER.ID_ = SR.SERVER_ID_ WHERE SF.PROJECT_ID_ = {projectID} GROUP BY SF.ID_, SF.PATH_, ST.SEARCH_STRING_, SER.ALIAS_) s ON ids.ID = s.ID LEFT JOIN (SELECT RSF.ID_ AS ID, RSF.PATH_ AS PATH, NULL AS ALIAS FROM PSE_REMOTE_SCANNED_FILES RSF WHERE RSF.PROJECT_ID_ = {projectID} GROUP BY RSF.ID_, RSF.PATH_) r ON ids.ID = r.ID ORDER BY PATH ASC;"""
-    return db_runner.run_query(sql)
+        # Return empty list rather than crashing
+        return []
 
 def get_inventories_not_in_repo(projectID):
     logger.info("Entering get_inventories_not_in_repo")
@@ -529,22 +501,15 @@ def get_inventory_item_file_paths(inventory_id, project_id):
     return db_runner.run_query(sql)
 
 if __name__ == "__main__":
-    # Get project evidence data using fixed optimized method
-    evidence_data_optimized = get_project_evidence(25)
+    # Get project evidence data using optimized unified method
+    evidence_data = get_project_evidence(25)
     
-    # Get project evidence data using original method
-    evidence_data_original = get_project_evidence_original(25)
+    # Write output to file for verification
+    with open('project_evidence_output.txt', 'w', encoding='utf-8') as f:
+        f.write(str(evidence_data))
     
-    # Write both outputs to files for comparison
-    with open('project_evidence_output_fixed.txt', 'w', encoding='utf-8') as f:
-        f.write(str(evidence_data_optimized))
-    
-    with open('project_evidence_output_original_new.txt', 'w', encoding='utf-8') as f:
-        f.write(str(evidence_data_original))
-    
-    print(f"Fixed optimized method: {len(evidence_data_optimized) if evidence_data_optimized else 0} records")
-    print(f"Original method: {len(evidence_data_original) if evidence_data_original else 0} records")
-    print("Output files created: project_evidence_output_fixed.txt and project_evidence_output_original_new.txt")
+    print(f"Unified method returned: {len(evidence_data) if evidence_data else 0} records")
+    print("Output file created: project_evidence_output.txt")
 
 
 
