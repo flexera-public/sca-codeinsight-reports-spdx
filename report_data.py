@@ -435,7 +435,12 @@ def manage_package_declared_licenses(inventoryItem, hasExtractedLicensingInfos):
                 hasExtractedLicensingInfos[licenseReference] = {}
                 hasExtractedLicensingInfos[licenseReference]["licenseId"] = licenseReference
                 hasExtractedLicensingInfos[licenseReference]["name"] = possibleLicenseSPDXIdentifier
-                hasExtractedLicensingInfos[licenseReference]["extractedText"] = possibleLicenseSPDXIdentifier
+                # Priority: noticeText > asFoundLicenseText > possibleLicenseSPDXIdentifier
+                extractedText = (inventoryItem.get("noticeText") or 
+                                inventoryItem.get("asFoundLicenseText") or 
+                                possibleLicenseSPDXIdentifier)
+                hasExtractedLicensingInfos[licenseReference]["extractedText"] = extractedText
+                hasExtractedLicensingInfos[licenseReference]["comment"] = [declaredLicenseComment]
                 hasExtractedLicensingInfos[licenseReference]["comment"] = [declaredLicenseComment]
             else:
                 # It's aready there so but is the comment the same as any previous entry
@@ -500,7 +505,12 @@ def manage_package_concluded_license(inventoryItem, hasExtractedLicensingInfos):
             hasExtractedLicensingInfos[licenseReference] = {}
             hasExtractedLicensingInfos[licenseReference]["licenseId"] = licenseReference
             hasExtractedLicensingInfos[licenseReference]["name"] = selectedLicenseSPDXIdentifier
-            hasExtractedLicensingInfos[licenseReference]["extractedText"] = selectedLicenseSPDXIdentifier
+            # Priority: noticeText > asFoundLicenseText > selectedLicenseSPDXIdentifier
+            extractedText = (inventoryItem.get("noticeText") or 
+                            inventoryItem.get("asFoundLicenseText") or 
+                            selectedLicenseSPDXIdentifier)
+            hasExtractedLicensingInfos[licenseReference]["extractedText"] = extractedText
+            hasExtractedLicensingInfos[licenseReference]["comment"] = [concludedLicenseComment]
             hasExtractedLicensingInfos[licenseReference]["comment"] = [concludedLicenseComment]
         else:
             # It's aready there so but is the comment the same as any previous entry
