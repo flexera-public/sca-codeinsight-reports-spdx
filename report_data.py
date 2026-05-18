@@ -110,9 +110,6 @@ def gather_data_for_report(projectID, reportData):
         inventoryItems = report_data_db.get_inventory_data(projectID)
         if inventoryItems is None:
             inventoryItems = []
-        inventoryItemsCustom = report_data_db.get_inventory_data_custom(projectID)
-        if inventoryItemsCustom is not None and inventoryItemsCustom != []:
-            inventoryItems += inventoryItemsCustom
         print("            Inventory has been collected.")
         logger.info("            Inventory has been collected.")      
         
