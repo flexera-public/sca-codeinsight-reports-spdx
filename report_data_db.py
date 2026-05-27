@@ -286,6 +286,54 @@ def get_custom_field_value(inventory_id, field_label="Archive Property"):
         logger.warning(f"No custom field value found for inventory ID: {inventory_id} and label: {field_label}")
         return "N/A"
 
+def get_project_application_details(project_id):
+    logger.debug("Entering get_project_application_details.")
+
+    def _get_project_custom_field(field_label):
+        """Return the value of a project-level custom field, or None if not set."""
+        sql_meta = f"SELECT FIELD_NAME_ FROM PAS_PROJECT_CUSTOM_FIELDS_METADATA WHERE FIELD_LABEL_ = '{field_label}';"
+        meta_result = db_runner.run_query(sql_meta)
+        if not meta_result or not isinstance(meta_result, list) or len(meta_result) == 0 or not meta_result[0].get('FIELD_NAME_'):
+            logger.warning(f"No project custom field metadata found for '{field_label}'")
+            return None
+        field_name = meta_result[0]['FIELD_NAME_']
+        sql_value = f"SELECT {field_name} AS fieldValue FROM PAS_PROJECT_CUSTOM_FIELDS WHERE PROJECT_ID_ = {project_id};"
+        result = db_runner.run_query(sql_value)
+        if result and isinstance(result, list) and len(result) > 0 and result[0].get('fieldValue'):
+            return result[0]['fieldValue']
+        return None
+
+    projectName = get_projects_data(project_id)
+
+    applicationName = _get_project_custom_field('Application Name')
+    applicationVersion = _get_project_custom_field('Application Version')
+    applicationPublisher = _get_project_custom_field('Application Publisher')
+
+    if applicationName is None:
+        applicationName = projectName
+
+    if applicationVersion is None:
+        applicationNameVersion = applicationName
+    else:
+        applicationNameVersion = applicationName + " - " + applicationVersion
+
+    if applicationPublisher is None:
+        applicationDocumentString = applicationNameVersion
+    else:
+        applicationDocumentString = applicationPublisher + " - " + applicationNameVersion
+
+    applicationDetails = {
+        "applicationName": applicationName,
+        "applicationVersion": applicationVersion,
+        "applicationPublisher": applicationPublisher,
+        "applicationNameVersion": applicationNameVersion,
+        "applicationDocumentString": applicationDocumentString,
+    }
+
+    logger.info(f"    applicationDetails: {applicationDetails}")
+    return applicationDetails
+
+
 def get_server_scanned_files(projectID, includeUnassociatedFiles):
     logger.info("Entering get_server_scanned_files")
     if includeUnassociatedFiles:

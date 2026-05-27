@@ -13,7 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Change top level relationship for project name package
 - Tested with pyspdxtools
 
-## [4.0.4] - 2025-07-17
+## [4.0.5] - 2026-05-27
+### Changed
+- Make use of Project custom Fields for Publisher details
+
+## [4.0.4] - 2026-05-17
 ### Changed
 - Removed additional None versions for Custom Component Versions
 

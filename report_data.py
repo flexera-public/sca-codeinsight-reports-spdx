@@ -44,7 +44,8 @@ def gather_data_for_report(projectID, reportData):
     includeCopyrightsData = reportOptions["includeCopyrightsData"] # True/False
 
     project_Name = report_data_db.get_projects_data(projectID)
-    documentName = project_Name.replace(" ", "_")
+    applicationDetails = report_data_db.get_project_application_details(projectID)
+    documentName = applicationDetails["applicationDocumentString"].replace(" - ", "-").replace(" ", "_")
     if reportOptions["includeChildProjects"]:
         projectList = report_data_db.get_child_projects(projectID)
     else:
@@ -65,7 +66,7 @@ def gather_data_for_report(projectID, reportData):
     packageDetails = {}
     packageDetails["SPDXID"] = rootSPDXID
     packageDetails["name"] = topLevelProjectName
-    packageDetails["supplier"] = "Organization: None"
+    packageDetails["supplier"] = "Organization: %s" % (applicationDetails["applicationPublisher"] if applicationDetails["applicationPublisher"] else "None")
     packageDetails["homepage"] = "NOASSERTION"
     packageDetails["downloadLocation"] = "NOASSERTION"
     packageDetails["copyrightText"] = "NOASSERTION" 
