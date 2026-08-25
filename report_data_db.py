@@ -16,6 +16,7 @@ import os
 import configparser
 import json
 from packaging.version import parse as parse_version
+import SPDX_license_mappings
 
 logger = logging.getLogger(__name__)
 
@@ -202,15 +203,68 @@ def get_patch_comp_version(component_id, version_name):
         return None
     return str(max(higher_versions, key=parse_version))
 
+def _resolve_license_expressions(rows):
+    """Resolve Code Insight's numeric license expressions to SPDX expressions."""
+    import re
+
+    if not rows:
+        return rows or []
+    expression_rows = [row for row in rows if row.get("licenseExpression")]
+    if not expression_rows:
+        return rows
+
+    license_ids = set()
+    for row in expression_rows:
+        license_ids.update(int(value) for value in re.findall(r"(?<![A-Za-z0-9_-])\d+", row["licenseExpression"]))
+    if not license_ids:
+        return rows
+
+    ids = ",".join(str(value) for value in sorted(license_ids))
+    license_rows = db_runner.run_query(
+        "SELECT ID_ AS licenseId, NAME_ AS licenseName, SHORT_NAME_ AS shortName, "
+        "SPDX_LICENSE_IDENTIFIER_ AS spdxIdentifier FROM PDL_LICENSE WHERE ID_ IN (" + ids + ");"
+    )
+    licenses = {int(row["licenseId"]): row for row in license_rows or []}
+
+    for row in expression_rows:
+        expression = row["licenseExpression"]
+        missing = False
+
+        def replace_license(match):
+            nonlocal missing
+            license_id = int(match.group(0))
+            license = licenses.get(license_id)
+            if not license:
+                missing = True
+                return match.group(0)
+            identifier = license.get("spdxIdentifier") or license.get("shortName") or license.get("licenseName")
+            if not identifier or license.get("licenseName") in ("I don't know", "N/A"):
+                missing = True
+                return match.group(0)
+            if license.get("licenseName") == "Public Domain":
+                return "NONE"
+            return SPDX_license_mappings.LICENSEMAPPINGS.get(identifier, identifier)
+
+        resolved = re.sub(r"(?<![A-Za-z0-9_-])\d+", replace_license, expression)
+        if not missing and re.search(r"\b(?:AND|OR)\b", resolved, re.IGNORECASE):
+            row["resolvedLicenseExpression"] = resolved
+        elif not missing and resolved.strip():
+            row["resolvedLicenseExpression"] = resolved.strip()
+        else:
+            logger.warning("Unable to resolve license expression '%s'; using selected license", expression)
+    return rows
+
+
 def get_inventory_data(project_id):
     # LEFT JOIN both version tables so that custom versions (PDL_COMPONENT_VERSION_CUSTOM)
     # are resolved via COALESCE instead of returning NULL for componentVersionName.
-    sql = f"""SELECT REPO_TAB.ITEM_TYPE_ AS inventoryType, 'Component' AS type, REPO_TAB.COMPONENT_ID_ AS component_id, REPO_TAB.COMPONENT_VERSION_ID_ AS component_version_id, FORGE.NAME_ AS forge, INV_GRP.ID_ AS inventoryID, INV_GRP.NAME_ AS inventoryItemName, INV_GRP.USAGE_TEXT_ AS usageText, INV_GRP.PARENT_GROUP_ID_ AS parentGroupId, INV_GRP.PRIORITY_ID_ AS priority, INV_GRP.AUDITOR_REVIEW_NOTES_ AS auditNotes, INV_GRP.DISTRIBUTION_TYPE_ AS disType, INV_GRP.COPYRIGHT_TEXT_ AS copyright, INV_GRP.DEPENDENCY_SCOPE_ AS dependencyScope, INV_GRP.AS_FOUND_TEXT_ AS asFoundLicenseText, INV_GRP.NOTICE_TEXT_ AS noticeText, COMP.NAME_ AS componentName, COALESCE(COMP_VER.VERSION_NAME_, CUST_COMP_VER.VERSION_NAME_) AS componentVersionName, COMP.ID_ AS componentId, COMP.URL_ AS componentUrl, INV_GRP.DESCRIPTION_ AS componentDescription, LIC.SPDX_LICENSE_IDENTIFIER_ AS selectedLicenseSPDXIdentifier, LIC.NAME_ AS selectedLicenseName, LIC.SHORT_NAME_ AS shortName, LIC.URL_ AS selectedLicenseUrl FROM PSE_INVENTORY_GROUPS INV_GRP JOIN PAS_REPOSITORY_ITEM REPO_TAB ON INV_GRP.REPOSITORY_ITEM_ID_ = REPO_TAB.ID_ JOIN PDL_COMPONENT COMP ON REPO_TAB.COMPONENT_ID_ = COMP.ID_ JOIN PDL_FORGE FORGE ON FORGE.ID_ = COMP.FORGE_ID_ LEFT JOIN PDL_COMPONENT_VERSION COMP_VER ON REPO_TAB.COMPONENT_VERSION_ID_ = COMP_VER.ID_ LEFT JOIN PDL_COMPONENT_VERSION_CUSTOM CUST_COMP_VER ON REPO_TAB.COMPONENT_VERSION_ID_ = CUST_COMP_VER.ID_ JOIN PDL_LICENSE LIC ON REPO_TAB.LICENSE_ID_ = LIC.ID_ WHERE INV_GRP.PROJECT_ID_ = {project_id} and INV_GRP.PUBLISHED_ =1;"""
-    return db_runner.run_query(sql)
+    sql = f"""SELECT REPO_TAB.ITEM_TYPE_ AS inventoryType, 'Component' AS type, REPO_TAB.COMPONENT_ID_ AS component_id, REPO_TAB.COMPONENT_VERSION_ID_ AS component_version_id, FORGE.NAME_ AS forge, INV_GRP.ID_ AS inventoryID, INV_GRP.NAME_ AS inventoryItemName, INV_GRP.USAGE_TEXT_ AS usageText, INV_GRP.PARENT_GROUP_ID_ AS parentGroupId, INV_GRP.PRIORITY_ID_ AS priority, INV_GRP.AUDITOR_REVIEW_NOTES_ AS auditNotes, INV_GRP.DISTRIBUTION_TYPE_ AS disType, INV_GRP.COPYRIGHT_TEXT_ AS copyright, INV_GRP.DEPENDENCY_SCOPE_ AS dependencyScope, INV_GRP.AS_FOUND_TEXT_ AS asFoundLicenseText, INV_GRP.NOTICE_TEXT_ AS noticeText, COMP.NAME_ AS componentName, COALESCE(COMP_VER.VERSION_NAME_, CUST_COMP_VER.VERSION_NAME_) AS componentVersionName, COMP.ID_ AS componentId, COMP.URL_ AS componentUrl, INV_GRP.DESCRIPTION_ AS componentDescription, LIC.SPDX_LICENSE_IDENTIFIER_ AS selectedLicenseSPDXIdentifier, LIC.NAME_ AS selectedLicenseName, LIC.SHORT_NAME_ AS shortName, LIC.URL_ AS selectedLicenseUrl, LICENSE_EXPR.LICENSE_EXPRESSION_ AS licenseExpression FROM PSE_INVENTORY_GROUPS INV_GRP JOIN PAS_REPOSITORY_ITEM REPO_TAB ON INV_GRP.REPOSITORY_ITEM_ID_ = REPO_TAB.ID_ JOIN PDL_COMPONENT COMP ON REPO_TAB.COMPONENT_ID_ = COMP.ID_ JOIN PDL_FORGE FORGE ON FORGE.ID_ = COMP.FORGE_ID_ LEFT JOIN PDL_COMPONENT_VERSION COMP_VER ON REPO_TAB.COMPONENT_VERSION_ID_ = COMP_VER.ID_ LEFT JOIN PDL_COMPONENT_VERSION_CUSTOM CUST_COMP_VER ON REPO_TAB.COMPONENT_VERSION_ID_ = CUST_COMP_VER.ID_ JOIN PDL_LICENSE LIC ON REPO_TAB.LICENSE_ID_ = LIC.ID_ LEFT JOIN PSE_LICENSE_EXPRESSION LICENSE_EXPR ON REPO_TAB.LICENSE_EXPRESSION_ID_ = LICENSE_EXPR.ID_ WHERE INV_GRP.PROJECT_ID_ = {project_id} and INV_GRP.PUBLISHED_ =1;"""
+    return _resolve_license_expressions(db_runner.run_query(sql))
+
 
 def get_inventory_data_custom(project_id):
-    sql = f"""SELECT REPO_TAB.ITEM_TYPE_ AS inventoryType, 'Component' AS type, REPO_TAB.COMPONENT_ID_ AS component_id, REPO_TAB.COMPONENT_VERSION_ID_ AS component_version_id, FORGE.NAME_ AS forge, INV_GRP.ID_ AS inventoryID, INV_GRP.NAME_ AS inventoryItemName, INV_GRP.USAGE_TEXT_ AS usageText, INV_GRP.PARENT_GROUP_ID_ AS parentGroupId, INV_GRP.PRIORITY_ID_ AS priority, INV_GRP.AUDITOR_REVIEW_NOTES_ AS auditNotes, INV_GRP.DISTRIBUTION_TYPE_ AS disType, INV_GRP.COPYRIGHT_TEXT_ AS copyright, INV_GRP.DEPENDENCY_SCOPE_ AS dependencyScope, INV_GRP.AS_FOUND_TEXT_ AS asFoundLicenseText, INV_GRP.NOTICE_TEXT_ AS noticeText, COMP.NAME_ AS componentName, CUST_COMP_VER.VERSION_NAME_ AS componentVersionName, COMP.ID_ AS componentId, COMP.URL_ AS componentUrl, INV_GRP.DESCRIPTION_ AS componentDescription, LIC.SPDX_LICENSE_IDENTIFIER_ AS selectedLicenseSPDXIdentifier, LIC.NAME_ AS selectedLicenseName, LIC.SHORT_NAME_ AS shortName, LIC.URL_ AS selectedLicenseUrl FROM PSE_INVENTORY_GROUPS INV_GRP JOIN PAS_REPOSITORY_ITEM REPO_TAB ON INV_GRP.REPOSITORY_ITEM_ID_ = REPO_TAB.ID_ JOIN PDL_COMPONENT COMP ON REPO_TAB.COMPONENT_ID_ = COMP.ID_ JOIN PDL_FORGE FORGE ON FORGE.ID_ = COMP.FORGE_ID_ JOIN PDL_COMPONENT_VERSION_CUSTOM CUST_COMP_VER ON REPO_TAB.COMPONENT_VERSION_ID_ = CUST_COMP_VER.ID_ JOIN PDL_LICENSE LIC ON REPO_TAB.LICENSE_ID_ = LIC.ID_ WHERE INV_GRP.PROJECT_ID_ = {project_id} and INV_GRP.PUBLISHED_ =1;"""    
-    return db_runner.run_query(sql)
+    sql = f"""SELECT REPO_TAB.ITEM_TYPE_ AS inventoryType, 'Component' AS type, REPO_TAB.COMPONENT_ID_ AS component_id, REPO_TAB.COMPONENT_VERSION_ID_ AS component_version_id, FORGE.NAME_ AS forge, INV_GRP.ID_ AS inventoryID, INV_GRP.NAME_ AS inventoryItemName, INV_GRP.USAGE_TEXT_ AS usageText, INV_GRP.PARENT_GROUP_ID_ AS parentGroupId, INV_GRP.PRIORITY_ID_ AS priority, INV_GRP.AUDITOR_REVIEW_NOTES_ AS auditNotes, INV_GRP.DISTRIBUTION_TYPE_ AS disType, INV_GRP.COPYRIGHT_TEXT_ AS copyright, INV_GRP.DEPENDENCY_SCOPE_ AS dependencyScope, INV_GRP.AS_FOUND_TEXT_ AS asFoundLicenseText, INV_GRP.NOTICE_TEXT_ AS noticeText, COMP.NAME_ AS componentName, CUST_COMP_VER.VERSION_NAME_ AS componentVersionName, COMP.ID_ AS componentId, COMP.URL_ AS componentUrl, INV_GRP.DESCRIPTION_ AS componentDescription, LIC.SPDX_LICENSE_IDENTIFIER_ AS selectedLicenseSPDXIdentifier, LIC.NAME_ AS selectedLicenseName, LIC.SHORT_NAME_ AS shortName, LIC.URL_ AS selectedLicenseUrl, LICENSE_EXPR.LICENSE_EXPRESSION_ AS licenseExpression FROM PSE_INVENTORY_GROUPS INV_GRP JOIN PAS_REPOSITORY_ITEM REPO_TAB ON INV_GRP.REPOSITORY_ITEM_ID_ = REPO_TAB.ID_ JOIN PDL_COMPONENT COMP ON REPO_TAB.COMPONENT_ID_ = COMP.ID_ JOIN PDL_FORGE FORGE ON FORGE.ID_ = COMP.FORGE_ID_ JOIN PDL_COMPONENT_VERSION_CUSTOM CUST_COMP_VER ON REPO_TAB.COMPONENT_VERSION_ID_ = CUST_COMP_VER.ID_ JOIN PDL_LICENSE LIC ON REPO_TAB.LICENSE_ID_ = LIC.ID_ LEFT JOIN PSE_LICENSE_EXPRESSION LICENSE_EXPR ON REPO_TAB.LICENSE_EXPRESSION_ID_ = LICENSE_EXPR.ID_ WHERE INV_GRP.PROJECT_ID_ = {project_id} and INV_GRP.PUBLISHED_ =1;"""
+    return _resolve_license_expressions(db_runner.run_query(sql))
 
 def get_component_forge(component_id):
     sql = f"SELECT frg.NAME_ AS forge, comp.TITLE_ AS title FROM PDL_FORGE frg JOIN PDL_COMPONENT comp ON frg.ID_ = comp.FORGE_ID_ WHERE comp.ID_= {component_id};"
