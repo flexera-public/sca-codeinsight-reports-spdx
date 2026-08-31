@@ -445,7 +445,7 @@ def manage_package_declared_licenses(inventoryItem, hasExtractedLicensingInfos):
                 if declaredLicenseComment not in hasExtractedLicensingInfos[licenseReference]["comment"]:
                     hasExtractedLicensingInfos[licenseReference]["comment"].append(declaredLicenseComment)
 
-    #  Clean up the declared licenses 
+    #  Clean up the declared licenses
     if len(declaredLicenses) == 0:
         declaredLicenses = "NOASSERTION"
     elif len(declaredLicenses) == 1:
@@ -454,13 +454,17 @@ def manage_package_declared_licenses(inventoryItem, hasExtractedLicensingInfos):
         if "NONE" in declaredLicenses:
             declaredLicenses = "NONE"
         else:
-            declaredLicenses = "(" + ' OR '.join(sorted(declaredLicenses)) + ")"
+            declaredLicenses = ' OR '.join(sorted(declaredLicenses))
 
     return declaredLicenses, hasExtractedLicensingInfos
 
 
 #----------------------------------------------
 def manage_package_concluded_license(inventoryItem, hasExtractedLicensingInfos):
+
+    resolved_expression = inventoryItem.get("resolvedLicenseExpression")
+    if resolved_expression and inventoryItem.get("type") == "Component":
+        return resolved_expression, hasExtractedLicensingInfos
 
     selectedLicenseName = inventoryItem["selectedLicenseName"]
     if inventoryItem["selectedLicenseSPDXIdentifier"] is None and inventoryItem["shortName"] != "":
