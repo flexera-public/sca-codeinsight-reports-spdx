@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Change top level relationship for project name package
 - Tested with pyspdxtools
 
+## [4.0.7] - 2026-09-22
+### Fixed
+- Remote files evidences
+
 ## [4.0.6] - 2026-08-25
 ### Changed
 - License expressions 

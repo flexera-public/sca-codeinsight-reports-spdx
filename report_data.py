@@ -233,8 +233,10 @@ def gather_data_for_report(projectID, reportData):
             packageDetails["supplier"] = supplier
 
             # Manage file details related to this package
-            filePaths = report_data_db.get_inventory_item_file_paths(inventoryID, projectID)
-            
+
+            ScannedFilePaths = report_data_db.get_inventory_item_file_paths(inventoryID, projectID)
+            remoteScannedFilePaths = report_data_db.get_inventory_item_remote_file_paths(inventoryID, projectID)
+            filePaths = ScannedFilePaths + remoteScannedFilePaths
             # Manange the relationship for this pacakge to the root item
             packageRelationship = {}
             packageRelationship["spdxElementId"] = packageSPDXID
