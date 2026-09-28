@@ -15,6 +15,7 @@ from datetime import datetime
 
 import _version
 import report_data
+import report_data_db
 import report_artifacts
 import report_errors
 import upload_reports
@@ -331,4 +332,7 @@ def verifyOptions(reportOptions):
 
 #----------------------------------------------------------------------#    
 if __name__ == "__main__":
-    main()  
+    try:
+        main()
+    finally:
+        report_data_db.close_db_runner()

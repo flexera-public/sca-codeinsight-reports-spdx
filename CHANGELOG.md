@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix tag/value dupliate file when single file mapped to multiple packages
 - Change top level relationship for project name package
 - Tested with pyspdxtools
+## [4.0.8] - 2026-09-28
+### Fixed
+- Resource Optimizations
 
 ## [4.0.7] - 2026-09-22
 ### Fixed

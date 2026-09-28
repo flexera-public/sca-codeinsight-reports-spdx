@@ -81,6 +81,9 @@ def get_scanned_file_details(projectID, includeUnassociatedFiles):
             scannedFileDetails["checksums"].append(checksum)
             
         scannedFileDetails["licenseConcluded"] = "NOASSERTION"  # TODO - Requires custom fields at file level
+        # Defensive defaults: get_file_evidence() overwrites these when evidence exists for the file
+        scannedFileDetails["licenseInfoInFiles"] = ["NOASSERTION"]
+        scannedFileDetails["copyrightText"] = "NOASSERTION"
 
         fileDetails[uniqueFileID] = scannedFileDetails
 
@@ -200,14 +203,19 @@ def structure_evidence_details(projectEvidenceDetails):
     Structure evidence details by ID, collecting non-None values for LICENSE, EMAILURL, COPYRIGHT, SEARCHSTRING into lists
     """
     structuredData = {}
+    # Use sets to efficiently track duplicates for O(1) lookup instead of O(n) list lookup
+    duplicate_sets = {}  # Maps fileId -> field -> set of values to track duplicates
     
     for evidence in projectEvidenceDetails:
-        fileId = evidence["ID"]
+        # Local and remote files have independent ID sequences (separate AUTO_INCREMENT
+        # counters), so a bare evidence["ID"] can collide between a local and a remote
+        # file. Namespace the key by source to avoid cross-contaminating their evidence.
+        fileId = str(evidence["ID"]) + ("-r" if evidence["REMOTE_ID"] is not None else "-s")
         
         # Initialize the structure for this ID if it doesn't exist
         if fileId not in structuredData:
             structuredData[fileId] = {
-                "ID": fileId,
+                "ID": evidence["ID"],
                 "PATH": evidence["PATH"],
                 "ALIAS": evidence["ALIAS"],
                 "DIGEST": evidence["DIGEST"],
@@ -218,19 +226,37 @@ def structure_evidence_details(projectEvidenceDetails):
                 "emailUrlMatches": [],
                 "searchTextMatches": []
             }
+            # Initialize duplicate tracking sets for this ID
+            duplicate_sets[fileId] = {
+                "licenseMatches": set(),
+                "copyRightMatches": set(),
+                "emailUrlMatches": set(),
+                "searchTextMatches": set()
+            }
         
-        # Collect non-None values for each category
-        if evidence["LICENSE"] is not None and evidence["LICENSE"] not in structuredData[fileId]["licenseMatches"]:
-            structuredData[fileId]["licenseMatches"].append(evidence["LICENSE"])
-            
-        if evidence["COPYRIGHT"] is not None and evidence["COPYRIGHT"] not in structuredData[fileId]["copyRightMatches"]:
-            structuredData[fileId]["copyRightMatches"].append(evidence["COPYRIGHT"])
-            
-        if evidence["EMAILURL"] is not None and evidence["EMAILURL"] not in structuredData[fileId]["emailUrlMatches"]:
-            structuredData[fileId]["emailUrlMatches"].append(evidence["EMAILURL"])
-            
-        if evidence["SEARCHSTRING"] is not None and evidence["SEARCHSTRING"] not in structuredData[fileId]["searchTextMatches"]:
-            structuredData[fileId]["searchTextMatches"].append(evidence["SEARCHSTRING"])
+        # Collect non-None values for each category using sets for O(1) duplicate checking
+        evidence_data = structuredData[fileId]
+        dup_sets = duplicate_sets[fileId]
+        
+        if evidence["LICENSE"] is not None:
+            if evidence["LICENSE"] not in dup_sets["licenseMatches"]:
+                evidence_data["licenseMatches"].append(evidence["LICENSE"])
+                dup_sets["licenseMatches"].add(evidence["LICENSE"])
+                
+        if evidence["COPYRIGHT"] is not None:
+            if evidence["COPYRIGHT"] not in dup_sets["copyRightMatches"]:
+                evidence_data["copyRightMatches"].append(evidence["COPYRIGHT"])
+                dup_sets["copyRightMatches"].add(evidence["COPYRIGHT"])
+                
+        if evidence["EMAILURL"] is not None:
+            if evidence["EMAILURL"] not in dup_sets["emailUrlMatches"]:
+                evidence_data["emailUrlMatches"].append(evidence["EMAILURL"])
+                dup_sets["emailUrlMatches"].add(evidence["EMAILURL"])
+                
+        if evidence["SEARCHSTRING"] is not None:
+            if evidence["SEARCHSTRING"] not in dup_sets["searchTextMatches"]:
+                evidence_data["searchTextMatches"].append(evidence["SEARCHSTRING"])
+                dup_sets["searchTextMatches"].add(evidence["SEARCHSTRING"])
     
     return structuredData
 
