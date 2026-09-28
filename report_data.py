@@ -24,13 +24,16 @@ def gather_data_for_report(projectID, reportData):
     SPDXIDPackageNamePattern = r"[^a-zA-Z0-9\-\.]"  # PackageName is a unique string containing letters, numbers, ., and/or - so get rid of the rest
     reportDetails={}
     packages = []
+    seenPackageSPDXIDs = set()  # O(1) dedup tracking for packages
     #packageFiles = {} # Needed for tag/value format since files needed to be inline with packages
     hasExtractedLicensingInfos = {}
     relationships = []
     files = []
+    seenFileSPDXIDs = set()  # O(1) dedup tracking for files
     filesNotInInventory = []
+    seenFilesNotInInventorySPDXIDs = set()  # O(1) dedup tracking for filesNotInInventory
     filePathsNotInInventoryToID = {}
-    projectCopyrights = []
+    projectCopyrights = set()
 
     reportOptions = reportData["reportOptions"]
     releaseVersion = "N/A"
@@ -76,6 +79,7 @@ def gather_data_for_report(projectID, reportData):
     
 
     packages.append(packageDetails)
+    seenPackageSPDXIDs.add(packageDetails["SPDXID"])
 
     # Manange the relationship for this top level package
     packageRelationship = {}
@@ -83,8 +87,23 @@ def gather_data_for_report(projectID, reportData):
     packageRelationship["relationshipType"] = "DESCRIBES"
     packageRelationship["relatedSpdxElement"] = rootSPDXID
     
-    if packageRelationship not in relationships:
+    # Optimize: Convert relationships list to set for O(1) lookup instead of O(n) list lookup
+    # Create a helper function to check if the relationship already exists
+    def relationship_exists(rel, rel_set):
+        """Check if relationship already exists using set lookup for performance""" 
+        # Create tuple with sorted keys for consistent comparison
+        rel_tuple = tuple(sorted((k, v) for k, v in rel.items()))
+        return rel_tuple in rel_set
+
+    # Create relationship set for O(1) lookup performance when checking for duplicates
+    relationships_set = set()
+    for rel in relationships:
+        relationships_set.add(tuple(sorted((k, v) for k, v in rel.items())))
+    
+    if not relationship_exists(packageRelationship, relationships_set):
         relationships.append(packageRelationship)
+        # Add to set for future lookups
+        relationships_set.add(tuple(sorted((k, v) for k, v in packageRelationship.items())))
 
     #  Gather the details for each project and summerize the data
     for project in projectList:
@@ -116,7 +135,8 @@ def gather_data_for_report(projectID, reportData):
         
         # To check inventory type between License Only or WIP
         inventoriesNotInRepo = report_data_db.get_inventories_not_in_repo(projectID)    # To handle WIP and License Only inventories
-        inventoryItems += inventoriesNotInRepo
+        # Optimize: Use extend() instead of concatenation for better performance
+        inventoryItems.extend(inventoriesNotInRepo)
 
         for inventoryItem in inventoryItems:
             supplier = None # Set a default value to compare with
@@ -243,8 +263,11 @@ def gather_data_for_report(projectID, reportData):
             packageRelationship["relationshipType"] = "PACKAGE_OF"
             packageRelationship["relatedSpdxElement"] = rootSPDXID
             
-            if packageRelationship not in relationships:
+            # Optimize: Use existing relationship set for O(1) lookup instead of O(n) list lookup
+            if not relationship_exists(packageRelationship, relationships_set):
                 relationships.append(packageRelationship)
+                # Add to set for future lookups
+                relationships_set.add(tuple(sorted((k, v) for k, v in packageRelationship.items())))
 
 
             # Are there any files assocaited to this inventory item?
@@ -277,8 +300,9 @@ def gather_data_for_report(projectID, reportData):
 
                     #packageFiles[packageSPDXID].append(fileDetail) # add for tag/value output
                     # See if the file has alrady been added for another package or not for json output
-                    if fileDetail not in files:   
+                    if fileSPDXID not in seenFileSPDXIDs:
                         files.append(fileDetail)  # add for json output
+                        seenFileSPDXIDs.add(fileSPDXID)
 
                     # Define the relationship of the file to the package
                     fileRelationship = {}
@@ -288,7 +312,7 @@ def gather_data_for_report(projectID, reportData):
                     relationships.append(fileRelationship)
 
                     # Surfaces the file level evidence to the assocaited package
-                    licenseInfoFromFiles = licenseInfoFromFiles + fileDetail["licenseInfoInFiles"]
+                    licenseInfoFromFiles.extend(fileDetail.get("licenseInfoInFiles", ["NOASSERTION"]))
     
                 # Create a hash of the file hashes for PackageVerificationCode 
                 # Filter out None values from fileHashes before processing
@@ -311,8 +335,9 @@ def gather_data_for_report(projectID, reportData):
                 packageDetails["packageVerificationCode"] = {}
                 packageDetails["packageVerificationCode"]["packageVerificationCodeValue"] = packageVerificationCodeValue
             
-            if packageDetails not in packages:
+            if packageDetails["SPDXID"] not in seenPackageSPDXIDs:
                 packages.append(packageDetails)
+                seenPackageSPDXIDs.add(packageDetails["SPDXID"])
             
             # Collect copyrights for project
             if includeCopyrightsData:
@@ -322,7 +347,7 @@ def gather_data_for_report(projectID, reportData):
                     # Ensure we have a list to work with
                     if not isinstance(copyright_data, list):
                         copyright_data = [copyright_data] if copyright_data else []
-                    projectCopyrights = list(set(projectCopyrights) | set(copyright_data))
+                    projectCopyrights.update(copyright_data)
 
     
         # See if there are any files that are not contained in inventory
@@ -332,8 +357,10 @@ def gather_data_for_report(projectID, reportData):
                 uniqueFileID = filePathtoID["notInInventory"][filePath]["uniqueFileID"]
 
                 # Make sure it's only being added once in case a child project has many parents
-                if projectFileDetails[uniqueFileID] not in filesNotInInventory:
-                    filesNotInInventory.append(projectFileDetails[uniqueFileID])
+                notInInventoryFileDetail = projectFileDetails[uniqueFileID]
+                if notInInventoryFileDetail["SPDXID"] not in seenFilesNotInInventorySPDXIDs:
+                    filesNotInInventory.append(notInInventoryFileDetail)
+                    seenFilesNotInInventorySPDXIDs.add(notInInventoryFileDetail["SPDXID"])
 
 
     ##############################
@@ -348,15 +375,15 @@ def gather_data_for_report(projectID, reportData):
         else:
             packages.append(unassociatedFilesPackage)
 
-        relationships= relationships + unassociatedFilesRelationships
-        files = files + filesNotInInventory
+        relationships.extend(unassociatedFilesRelationships)
+        files.extend(filesNotInInventory)
         #packageFiles[unassociatedFilesPackage["SPDXID"]] = filesNotInInventory # add for tag/value output
 
     # Grabbing Copyrights in Package is Copyright in associated files and unassociated files in inventory
     if includeCopyrightsData:
         for item in packages:
             if item["copyrightText"] == "NOASSERTION":
-                item["copyrightText"] = process_copyrights(projectCopyrights)
+                item["copyrightText"] = process_copyrights(sorted(projectCopyrights))
 
     # Clean up the hasExtractedLicensingInfos comment field to remove the array and make a string
     for extractedLicense in hasExtractedLicensingInfos:
@@ -554,10 +581,12 @@ def manage_unassociated_files(filesNotInInventory, filePathtoID, rootSPDXID, cre
         fileSPDXID = fileDetails["SPDXID"]
         fileName = fileDetails["fileName"]
         
-        fileHashes.append(filePathtoID[fileName]["fileSHA1"])
+        filePathDetail = filePathtoID.get(fileName)
+        if filePathDetail is not None:
+            fileHashes.append(filePathDetail.get("fileSHA1"))
 
         # Surfaces the file level evidence to the assocaited package
-        licenseInfoFromFiles = licenseInfoFromFiles + fileDetails["licenseInfoInFiles"]
+        licenseInfoFromFiles.extend(fileDetails.get("licenseInfoInFiles", ["NOASSERTION"]))
   
        # Define the relationship of the file to the package
         fileRelationship = {}
@@ -567,9 +596,11 @@ def manage_unassociated_files(filesNotInInventory, filePathtoID, rootSPDXID, cre
         relationships.append(fileRelationship)
         
         # Collecting all unassociated files copyrights
-        if includeCopyrightsData and fileDetails["copyrightText"] != "NONE":
-            unassociatedFilesCopyrights.extend(fileDetails["copyrightText"] if isinstance(fileDetails["copyrightText"], list) else [fileDetails["copyrightText"]])
-            projectCopyrights.extend(fileDetails["copyrightText"] if isinstance(fileDetails["copyrightText"], list) else [fileDetails["copyrightText"]])
+        copyrightText = fileDetails.get("copyrightText", "NOASSERTION")
+        if includeCopyrightsData and copyrightText != "NONE":
+            copyrightValues = copyrightText if isinstance(copyrightText, list) else [copyrightText]
+            unassociatedFilesCopyrights.extend(copyrightValues)
+            projectCopyrights.update(copyrightValues)
 
     # Create a hash of the file hashes for PackageVerificationCode 
     # Filter out None values from fileHashes before processing

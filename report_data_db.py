@@ -15,6 +15,7 @@ import logging
 import os
 import configparser
 import json
+import time
 from packaging.version import parse as parse_version
 import SPDX_license_mappings
 
@@ -66,6 +67,11 @@ if not os.path.exists(JAR_PATH):
 
 class InteractiveDbQueryRunner:
     def __init__(self, jar_path, java_path=JAVA_PATH):
+        self.proc = None
+        self.lock = threading.Lock()
+        self._start_process(jar_path, java_path)
+
+    def _start_process(self, jar_path, java_path=JAVA_PATH):
         try:
             # Get absolute path to properties file
             abs_properties_path = os.path.abspath(properties_file)
@@ -82,29 +88,25 @@ class InteractiveDbQueryRunner:
             logger.info(f"Java process started with PID: {self.proc.pid}")
             
             # Check if process started successfully
-            import time
             time.sleep(0.1)  # Give it a moment to start
             if self.proc.poll() is not None:
                 stderr_output = self.proc.stderr.read() if self.proc.stderr else "No stderr available"
                 raise RuntimeError(f"Java process terminated immediately. Exit code: {self.proc.returncode}, stderr: {stderr_output}")
-                
+
+            # Drain stderr continuously for the life of the process. Otherwise a JVM
+            # warning/GC log/stack trace can fill the OS pipe buffer and deadlock:
+            # the JVM blocks writing to stderr while we block reading stdout.
+            self._stderr_thread = threading.Thread(target=self._drain_stderr, daemon=True)
+            self._stderr_thread.start()
+
         except Exception as e:
             logger.error(f"Failed to start Java process: {e}")
             raise
-        
-        self.lock = threading.Lock()
-        
-        # Try to set autocommit on
-        try:
-            self.run_query("SET autocommit = true;")
-            logger.info("Set database autocommit to true")
-        except Exception as e:
-            logger.warning(f"Could not set autocommit mode: {e}")
 
     def run_query(self, sql_query):
         with self.lock:
-            if self.proc.poll() is not None:
-                raise RuntimeError("Java process is not running")
+            if self.proc is None or self.proc.poll() is not None:
+                raise RuntimeError("Java process is not running or has been closed")
             self.proc.stdin.write(sql_query + "\n")
             self.proc.stdin.flush()
             output = ""
@@ -118,22 +120,89 @@ class InteractiveDbQueryRunner:
             try:
                 return json.loads(output)
             except json.JSONDecodeError:
+                # Log the erroneous output for debugging purposes before returning empty list
+                logger.warning(f"JSON decode error on query: {sql_query[:100]}... Output: {output[:100]}...")
                 return []
 
     def close(self):
-        if self.proc and self.proc.poll() is None:
-            try:
-                if self.proc.stdin:
-                    self.proc.stdin.write("exit\n")
-                    self.proc.stdin.flush()
-            except Exception as e:
-                logger.warning(f"Error sending exit to Java process: {e}")
-            try:
-                self.proc.terminate()
-            except Exception as e:
-                logger.warning(f"Error terminating Java process: {e}")
+        # Make sure we can call close multiple times safely
+        if self.proc is None:
+            return
+
+        try:
+            if self.proc.poll() is None:
+                try:
+                    if self.proc.stdin:
+                        self.proc.stdin.write("exit\n")
+                        self.proc.stdin.flush()
+                except Exception as e:
+                    logger.warning(f"Error sending exit to Java process: {e}")
+                # Wait for the process to terminate gracefully with a timeout
+                try:
+                    self.proc.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    # Force terminate if it didn't respond within timeout
+                    self.proc.kill()
+                    self.proc.wait()  # Wait for actual termination 
+                finally:
+                    # Close stdout and stderr to prevent resource leaks
+                    if hasattr(self.proc, 'stdout') and self.proc.stdout:
+                        try:
+                            self.proc.stdout.close()
+                        except Exception:
+                            pass
+                    if hasattr(self.proc, 'stderr') and self.proc.stderr:
+                        try:
+                            self.proc.stderr.close()
+                        except Exception:
+                            pass
             self.proc = None
-db_runner = InteractiveDbQueryRunner(JAR_PATH, JAVA_PATH)
+        except Exception as e:
+            logger.warning(f"Error closing process: {e}")
+
+    def _drain_stderr(self):
+        """Continuously read and log stderr for the life of the process."""
+        try:
+            for line in iter(self.proc.stderr.readline, ""):
+                logger.debug(f"Java stderr: {line.strip()}")
+        except (ValueError, OSError):
+            pass  # stream closed during shutdown
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+
+# The runner starts a JVM + DB connection, so construction is deferred until the first
+# query instead of paying that cost at import time (and on invalid-option error paths).
+_db_runner = None
+_db_runner_lock = threading.Lock()
+
+def get_db_runner():
+    """Thread-safe accessor for the singleton InteractiveDbQueryRunner, created on first use."""
+    global _db_runner
+    if _db_runner is None:
+        with _db_runner_lock:
+            if _db_runner is None:
+                _db_runner = InteractiveDbQueryRunner(JAR_PATH, JAVA_PATH)
+    return _db_runner
+
+def close_db_runner():
+    """Close the singleton database runner, if it was ever started."""
+    global _db_runner
+    with _db_runner_lock:
+        if _db_runner is not None:
+            _db_runner.close()
+            _db_runner = None
+
+class _LazyDbRunnerProxy:
+    """Delegates to the singleton InteractiveDbQueryRunner, constructing it on first use."""
+    def __getattr__(self, name):
+        return getattr(get_db_runner(), name)
+
+db_runner = _LazyDbRunnerProxy()
 
 
 def get_db_vendor():
@@ -404,7 +473,6 @@ def get_remote_scanned_files(projectID, includeUnassociatedFiles):
     else:
         remote_scanned_files_query = f"SELECT REMOTE_SCAN_FILE.ID_ AS fileId, REMOTE_SCAN_FILE.PATH_ AS filePath, REMOTE_SCAN_FILE.MD5_ AS fileMD5, REMOTE_SCAN_FILE.SHA1_ AS fileSHA1, GRP_FILES.GROUP_ID_ AS inInventory FROM PSE_REMOTE_SCANNED_FILES REMOTE_SCAN_FILE JOIN PSE_REMOTE_INVENTORY_GROUP_FILES GRP_FILES ON REMOTE_SCAN_FILE.ID_ = GRP_FILES.FILE_ID_ WHERE PROJECT_ID_ = {projectID};"
     result = db_runner.run_query(remote_scanned_files_query)
-    logger.info(result)
     return result
 
 def get_project_evidence(projectID):
@@ -633,16 +701,8 @@ def get_inventory_item_remote_file_paths(inventory_id, project_id):
     sql = f"SELECT DISTINCT SF.PATH_ FROM PSE_REMOTE_SCANNED_FILES SF INNER JOIN PSE_REMOTE_INVENTORY_GROUP_FILES IGF ON SF.ID_ = IGF.FILE_ID_ WHERE SF.PROJECT_ID_ = {project_id} AND IGF.GROUP_ID_ = {inventory_id} AND IGF.FILE_ID_ IS NOT NULL"
     return db_runner.run_query(sql)
 
-if __name__ == "__main__":
-    # Get project evidence data using optimized unified method
-    evidence_data = get_project_evidence(25)
-    
-    # Write output to file for verification
-    with open('project_evidence_output.txt', 'w', encoding='utf-8') as f:
-        f.write(str(evidence_data))
-    
-    print(f"Unified method returned: {len(evidence_data) if evidence_data else 0} records")
-    print("Output file created: project_evidence_output.txt")
+# NOTE: db_runner (the lazy proxy) and get_db_runner()/close_db_runner() are defined
+# immediately after the InteractiveDbQueryRunner class above.
 
 
 
