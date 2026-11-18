@@ -227,6 +227,12 @@ def gather_data_for_report(projectID, reportData):
                 homepage = inventoryItem["componentUrl"]
             else:
                 homepage = "NOASSERTION"
+
+            # Manage the download location value
+            if inventoryType == "Component" and inventoryItem["componentUrl"] not in ["", "N/A", "NA", None]:
+                downloadLocation = inventoryItem["inventoryUrl"]
+            else:
+                downloadLocation = "NOASSERTION"
     
             ##########################################
             # Manage Declared Licenses - These are the "possible" license based on data collection
@@ -246,7 +252,7 @@ def gather_data_for_report(projectID, reportData):
             if externalRefs:
                 packageDetails["externalRefs"] = externalRefs
             packageDetails["homepage"] = homepage
-            packageDetails["downloadLocation"] = "NOASSERTION"  # TODO - use a inventory custom field to store this?
+            packageDetails["downloadLocation"] = downloadLocation
             packageDetails["copyrightText"] = (process_copyrights(inventoryItem["copyright"]) if includeCopyrightsData else "NOASSERTION")
             packageDetails["licenseDeclared"] = declaredLicenses
             packageDetails["licenseConcluded"] = concludedLicense
