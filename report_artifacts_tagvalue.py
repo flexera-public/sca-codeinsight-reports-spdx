@@ -106,6 +106,12 @@ def generate_tagvalue_report(reportData):
                 for externalRef in packageDetails["externalRefs"]:
                     report_ptr.write("ExternalRef: %s %s %s\n" %(externalRef["referenceCategory"], externalRef["referenceType"], externalRef["referenceLocator"]))
 
+        if "primaryPackagePurpose" in packageDetails:
+            report_ptr.write("PrimaryPackagePurpose: %s\n" %packageDetails["primaryPackagePurpose"])
+
+        if "comment" in packageDetails:
+            report_ptr.write("PackageComment: <text>%s</text>\n" %packageDetails["comment"])
+
         report_ptr.write("\n")
 
         # if packageDetails["SPDXID"] in reportData["packageFiles"]:

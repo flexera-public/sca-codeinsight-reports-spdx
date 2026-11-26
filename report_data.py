@@ -76,6 +76,23 @@ def gather_data_for_report(projectID, reportData):
     packageDetails["licenseDeclared"] = "NOASSERTION"
     packageDetails["licenseConcluded"] = "NOASSERTION"
     packageDetails["filesAnalyzed"] = False
+
+    # SPDX 2.3: PrimaryPackagePurpose (Application Type)
+    # Valid values: APPLICATION, FRAMEWORK, LIBRARY, CONTAINER, OPERATING-SYSTEM, DEVICE, FIRMWARE, SOURCE, ARCHIVE, FILE, INSTALL, OTHER
+    appType = applicationDetails.get("applicationType")
+    if appType:
+        norm_purpose = appType.strip().upper().replace(" ", "-").replace("_", "-")
+        valid_purposes = {
+            "APPLICATION", "FRAMEWORK", "LIBRARY", "CONTAINER",
+            "OPERATING-SYSTEM", "DEVICE", "FIRMWARE", "SOURCE",
+            "ARCHIVE", "FILE", "INSTALL", "OTHER"
+        }
+        packageDetails["primaryPackagePurpose"] = norm_purpose if norm_purpose in valid_purposes else "OTHER"
+
+    # SPDX 2.3: Country of Origin stored in package comment
+    countryOfOrigin = applicationDetails.get("applicationCountryOfOrigin")
+    if countryOfOrigin:
+        packageDetails["comment"] = "Country of Origin: %s" % countryOfOrigin.strip()
     
 
     packages.append(packageDetails)
@@ -229,8 +246,10 @@ def gather_data_for_report(projectID, reportData):
                 homepage = "NOASSERTION"
 
             # Manage the download location value
-            if inventoryType == "Component" and inventoryItem["componentUrl"] not in ["", "N/A", "NA", None]:
+            if inventoryType == "Component" and inventoryItem.get("inventoryUrl") not in ["", "N/A", "NA", None]:
                 downloadLocation = inventoryItem["inventoryUrl"]
+            elif inventoryType == "Component" and inventoryItem.get("componentUrl") not in ["", "N/A", "NA", None]:
+                downloadLocation = inventoryItem["componentUrl"]
             else:
                 downloadLocation = "NOASSERTION"
     

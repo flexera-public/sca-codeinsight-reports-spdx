@@ -431,6 +431,8 @@ def get_project_application_details(project_id):
     applicationName = _get_project_custom_field('Application Name')
     applicationVersion = _get_project_custom_field('Application Version')
     applicationPublisher = _get_project_custom_field('Application Publisher')
+    countryOfOrigin = _get_project_custom_field('Country of Origin')
+    applicationType = _get_project_custom_field('Application Type')
 
     if applicationName is None:
         applicationName = projectName
@@ -449,6 +451,8 @@ def get_project_application_details(project_id):
         "applicationName": applicationName,
         "applicationVersion": applicationVersion,
         "applicationPublisher": applicationPublisher,
+        "applicationCountryOfOrigin": countryOfOrigin,
+        "applicationType": applicationType,
         "applicationNameVersion": applicationNameVersion,
         "applicationDocumentString": applicationDocumentString,
     }

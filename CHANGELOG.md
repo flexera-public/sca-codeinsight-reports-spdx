@@ -12,6 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix tag/value dupliate file when single file mapped to multiple packages
 - Change top level relationship for project name package
 - Tested with pyspdxtools
+## [4.1.0] - 2026-11-25
+
+### Added
+- Added **Application Type** as a project custom field, with support for `APPLICATION`, `FRAMEWORK`, `LIBRARY`, `CONTAINER`, `OPERATING-SYSTEM`, `DEVICE`, `FIRMWARE`, `SOURCE`, `ARCHIVE`, `FILE`, `INSTALL`, and `OTHER`.
+- Added **Country of Origin** as a project custom field.
+
 ## [4.0.9] - 2026-11-18
 ### Added
 -Package Download Location
